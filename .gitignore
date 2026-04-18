@@ -1,0 +1,20 @@
+# Python / Django
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.pyc
+backend/.venv/
+backend/db.sqlite3
+backend/.env
+
+# Android Studio
+android/.gradle/
+android/.idea/
+android/build/
+android/app/build/
+android/local.properties
+android/*.iml
+android/app/*.iml
+
+# OS
+.DS_Store
+Thumbs.db
