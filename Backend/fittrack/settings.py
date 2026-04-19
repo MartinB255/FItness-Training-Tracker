@@ -86,7 +86,7 @@ DATABASES = {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": "fittrack",
         "USER": "postgres",
-        "PASSWORD": "postgres",    # <-- change to your actual password
+        "PASSWORD": "fittrack",
         "HOST": "localhost",
         "PORT": "5432",
     }
