@@ -1,10 +1,13 @@
 package com.fittrack.app.ui.auth
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
+import android.text.method.PasswordTransformationMethod
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import com.fittrack.app.R
 import com.fittrack.app.data.api.RetrofitClient
@@ -31,6 +34,7 @@ class LoginActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, true)
 
         // If already logged in, skip to dashboard
         if (RetrofitClient.isLoggedIn()) {
@@ -47,6 +51,16 @@ class LoginActivity : AppCompatActivity() {
         btnRegister = findViewById(R.id.btnRegister)
         tvToggle = findViewById(R.id.tvToggle)
         progressBar = findViewById(R.id.progressBar)
+
+        // Mask password chars immediately (no last-char reveal delay)
+        etPassword.transformationMethod = PasswordTransformationMethod.getInstance()
+
+        // Disable stylus handwriting popup on login fields (API 33+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            etUsername.isAutoHandwritingEnabled = false
+            etEmail.isAutoHandwritingEnabled = false
+            etPassword.isAutoHandwritingEnabled = false
+        }
 
         updateMode()
 

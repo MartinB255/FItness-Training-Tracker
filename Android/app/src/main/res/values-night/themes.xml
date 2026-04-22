@@ -1,7 +1,25 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
-    <style name="Base.Theme.FitTrack" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your dark theme here. -->
-        <!-- <item name="colorPrimary">@color/my_dark_primary</item> -->
+    <!-- Night variant mirrors the day theme — dark gray + orange everywhere. -->
+    <style name="Base.Theme.FitTrack" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/primaryOrange</item>
+        <item name="colorPrimaryVariant">@color/primaryOrangeDark</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorSecondary">@color/primaryOrange</item>
+        <item name="colorOnSecondary">@color/white</item>
+
+        <item name="android:windowBackground">@color/backgroundGray</item>
+        <item name="android:colorBackground">@color/backgroundGray</item>
+        <item name="colorSurface">@color/backgroundGray</item>
+        <item name="colorOnSurface">@color/white</item>
+        <item name="colorOnBackground">@color/white</item>
+
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.FitTrack.Small</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.FitTrack.Medium</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.FitTrack.Large</item>
+
+        <item name="materialButtonStyle">@style/Widget.FitTrack.Button</item>
+
+        <item name="alertDialogTheme">@style/ThemeOverlay.FitTrack.Dialog</item>
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.FitTrack.Dialog</item>
     </style>
 </resources>

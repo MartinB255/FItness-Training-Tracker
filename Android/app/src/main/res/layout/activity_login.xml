@@ -5,7 +5,8 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:gravity="center"
-    android:padding="32dp">
+    android:padding="32dp"
+    android:fitsSystemWindows="true">
 
     <TextView
         android:layout_width="wrap_content"
@@ -21,6 +22,7 @@
         android:layout_height="wrap_content"
         android:hint="Username"
         android:inputType="text"
+        android:importantForAutofill="no"
         android:layout_marginBottom="12dp" />
 
     <EditText
@@ -29,6 +31,7 @@
         android:layout_height="wrap_content"
         android:hint="Email"
         android:inputType="textEmailAddress"
+        android:importantForAutofill="no"
         android:visibility="gone"
         android:layout_marginBottom="12dp" />
 
@@ -38,6 +41,8 @@
         android:layout_height="wrap_content"
         android:hint="Password"
         android:inputType="textPassword"
+        android:fontFamily="monospace"
+        android:importantForAutofill="no"
         android:layout_marginBottom="24dp" />
 
     <Button

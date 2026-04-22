@@ -7,12 +7,14 @@ import android.view.ViewGroup
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.fittrack.app.R
 import com.fittrack.app.data.model.WorkoutSession
 import com.fittrack.app.data.repository.FitTrackRepository
+import com.google.android.material.appbar.MaterialToolbar
 import kotlinx.coroutines.launch
 
 /**
@@ -30,7 +32,11 @@ class SessionListActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, true)
         setContentView(R.layout.activity_session_list)
+
+        findViewById<MaterialToolbar>(R.id.toolbar)
+            .setNavigationOnClickListener { finish() }
 
         rvSessions = findViewById(R.id.rvSessions)
         btnNewSession = findViewById(R.id.btnNewSession)

@@ -1,9 +1,64 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
-    <style name="Base.Theme.FitTrack" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+
+    <style name="Base.Theme.FitTrack" parent="Theme.Material3.Dark.NoActionBar">
+        <!-- Orange accent -->
+        <item name="colorPrimary">@color/primaryOrange</item>
+        <item name="colorPrimaryVariant">@color/primaryOrangeDark</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorSecondary">@color/primaryOrange</item>
+        <item name="colorOnSecondary">@color/white</item>
+
+        <!-- Dark gray backgrounds -->
+        <item name="android:windowBackground">@color/backgroundGray</item>
+        <item name="android:colorBackground">@color/backgroundGray</item>
+        <item name="colorSurface">@color/backgroundGray</item>
+        <item name="colorOnSurface">@color/white</item>
+        <item name="colorOnBackground">@color/white</item>
+
+        <!-- Rounded corners for buttons / cards / dialogs -->
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.FitTrack.Small</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.FitTrack.Medium</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.FitTrack.Large</item>
+
+        <!-- Orange rounded buttons -->
+        <item name="materialButtonStyle">@style/Widget.FitTrack.Button</item>
+
+        <!-- Rounded alert dialogs -->
+        <item name="alertDialogTheme">@style/ThemeOverlay.FitTrack.Dialog</item>
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.FitTrack.Dialog</item>
     </style>
 
     <style name="Theme.FitTrack" parent="Base.Theme.FitTrack" />
+
+    <!-- Shapes -->
+    <style name="ShapeAppearance.FitTrack.Small" parent="ShapeAppearance.Material3.Corner.Small">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">16dp</item>
+    </style>
+
+    <style name="ShapeAppearance.FitTrack.Medium" parent="ShapeAppearance.Material3.Corner.Medium">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">20dp</item>
+    </style>
+
+    <style name="ShapeAppearance.FitTrack.Large" parent="ShapeAppearance.Material3.Corner.Large">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">28dp</item>
+    </style>
+
+    <!-- Orange pill-ish buttons -->
+    <style name="Widget.FitTrack.Button" parent="Widget.Material3.Button">
+        <item name="backgroundTint">@color/primaryOrange</item>
+        <item name="android:textColor">@color/white</item>
+        <item name="cornerRadius">24dp</item>
+    </style>
+
+    <!-- Rounded dialog with dark gray surface and orange buttons -->
+    <style name="ThemeOverlay.FitTrack.Dialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="colorPrimary">@color/primaryOrange</item>
+        <item name="colorSurface">@color/backgroundGray</item>
+        <item name="colorOnSurface">@color/white</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.FitTrack.Large</item>
+    </style>
+
 </resources>

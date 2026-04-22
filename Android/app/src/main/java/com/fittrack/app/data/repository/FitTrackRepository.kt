@@ -2,6 +2,8 @@ package com.fittrack.app.data.repository
 
 import com.fittrack.app.data.api.RetrofitClient
 import com.fittrack.app.data.model.*
+import org.json.JSONArray
+import org.json.JSONObject
 import retrofit2.Response
 
 /**
@@ -22,8 +24,8 @@ object FitTrackRepository {
                 if (body != null) Result.success(body)
                 else Result.failure(Exception("Empty response body"))
             } else {
-                val errorBody = response.errorBody()?.string() ?: "Unknown error"
-                Result.failure(Exception("Error ${response.code()}: $errorBody"))
+                val raw = response.errorBody()?.string().orEmpty()
+                Result.failure(Exception(parseErrorMessage(raw, response.code())))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -35,9 +37,38 @@ object FitTrackRepository {
         return try {
             val response = call()
             if (response.isSuccessful) Result.success(Unit)
-            else Result.failure(Exception("Error ${response.code()}"))
+            else {
+                val raw = response.errorBody()?.string().orEmpty()
+                Result.failure(Exception(parseErrorMessage(raw, response.code())))
+            }
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    /**
+     * Turn a Django REST Framework error body into a human-readable string.
+     * Handles {"detail": "..."}, {"field": ["msg", ...]}, and plain strings.
+     */
+    private fun parseErrorMessage(raw: String, code: Int): String {
+        if (raw.isBlank()) return "Error $code"
+        return try {
+            val json = JSONObject(raw)
+            json.optString("detail").takeIf { it.isNotEmpty() }
+                ?: buildString {
+                    val keys = json.keys()
+                    while (keys.hasNext()) {
+                        val key = keys.next()
+                        val value = when (val v = json.get(key)) {
+                            is JSONArray -> (0 until v.length()).joinToString(" ") { v.getString(it) }
+                            else -> v.toString()
+                        }
+                        if (isNotEmpty()) append("\n")
+                        append(value)
+                    }
+                }.ifEmpty { "Error $code" }
+        } catch (_: Exception) {
+            raw
         }
     }
 

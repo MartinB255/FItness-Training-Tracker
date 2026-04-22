@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -14,6 +15,7 @@ import com.fittrack.app.R
 import com.fittrack.app.data.model.TrainingPlan
 import com.fittrack.app.data.repository.FitTrackRepository
 import com.fittrack.app.ui.exercises.ExercisesActivity
+import com.google.android.material.appbar.MaterialToolbar
 import kotlinx.coroutines.launch
 
 /**
@@ -32,7 +34,11 @@ class PlansActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, true)
         setContentView(R.layout.activity_plans)
+
+        findViewById<MaterialToolbar>(R.id.toolbar)
+            .setNavigationOnClickListener { finish() }
 
         rvPlans = findViewById(R.id.rvPlans)
         btnAddPlan = findViewById(R.id.btnAddPlan)

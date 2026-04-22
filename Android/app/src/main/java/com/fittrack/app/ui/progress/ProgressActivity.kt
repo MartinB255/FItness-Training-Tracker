@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import com.fittrack.app.R
 import com.fittrack.app.data.model.Exercise
@@ -15,6 +16,7 @@ import com.github.mikephil.charting.charts.LineChart
 import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.data.*
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter
+import com.google.android.material.appbar.MaterialToolbar
 import kotlinx.coroutines.launch
 
 /**
@@ -36,7 +38,11 @@ class ProgressActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, true)
         setContentView(R.layout.activity_progress)
+
+        findViewById<MaterialToolbar>(R.id.toolbar)
+            .setNavigationOnClickListener { finish() }
 
         spinnerPlan = findViewById(R.id.spinnerPlan)
         spinnerExercise = findViewById(R.id.spinnerExercise)

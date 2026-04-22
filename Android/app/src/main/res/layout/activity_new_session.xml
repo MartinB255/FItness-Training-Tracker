@@ -1,18 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- New workout session screen -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:fitsSystemWindows="true">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="New Workout"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="16dp" />
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        app:navigationIcon="@drawable/ic_arrow_back"
+        app:title="New Workout"
+        app:titleTextColor="@color/white" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="16dp">
 
     <TextView
         android:layout_width="wrap_content"
@@ -59,7 +66,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Save Workout"
-        android:layout_marginTop="8dp"
-        android:backgroundTint="#4CAF50" />
+        android:layout_marginTop="8dp" />
+
+    </LinearLayout>
 
 </LinearLayout>

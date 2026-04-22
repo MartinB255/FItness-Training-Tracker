@@ -4,7 +4,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:padding="16dp"
+    android:fitsSystemWindows="true">
 
     <TextView
         android:layout_width="wrap_content"
@@ -29,7 +30,7 @@
             android:text="Total Workouts: —"
             android:textSize="16sp"
             android:padding="12dp"
-            android:background="#F5F5F5" />
+            android:background="@color/surfaceGray" />
 
         <View
             android:layout_width="8dp"
@@ -43,7 +44,7 @@
             android:text="Streak: —"
             android:textSize="16sp"
             android:padding="12dp"
-            android:background="#F5F5F5" />
+            android:background="@color/surfaceGray" />
     </LinearLayout>
 
     <!-- Personal Records -->
@@ -96,6 +97,6 @@
         android:layout_height="wrap_content"
         android:text="Logout"
         android:layout_marginTop="4dp"
-        android:backgroundTint="#FF5252" />
+        android:backgroundTint="@color/dangerRed" />
 
 </LinearLayout>

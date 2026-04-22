@@ -2,4 +2,13 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <color name="primaryOrange">#FF7A00</color>
+    <color name="primaryOrangeDark">#E56A00</color>
+
+    <color name="backgroundGray">#2A2A2A</color>
+    <color name="surfaceGray">#3A3A3A</color>
+    <color name="onSurfaceMuted">#BBBBBB</color>
+
+    <color name="dangerRed">#FF5252</color>
 </resources>

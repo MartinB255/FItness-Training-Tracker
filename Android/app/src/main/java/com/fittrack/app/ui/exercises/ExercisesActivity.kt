@@ -6,12 +6,14 @@ import android.view.ViewGroup
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.fittrack.app.R
 import com.fittrack.app.data.model.Exercise
 import com.fittrack.app.data.repository.FitTrackRepository
+import com.google.android.material.appbar.MaterialToolbar
 import kotlinx.coroutines.launch
 
 /**
@@ -30,11 +32,15 @@ class ExercisesActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, true)
         setContentView(R.layout.activity_exercises)
 
         planId = intent.getIntExtra("plan_id", 0)
         val planName = intent.getStringExtra("plan_name") ?: "Exercises"
-        title = planName
+
+        val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
+        toolbar.title = planName
+        toolbar.setNavigationOnClickListener { finish() }
 
         rvExercises = findViewById(R.id.rvExercises)
         btnAddExercise = findViewById(R.id.btnAddExercise)
