@@ -22,6 +22,7 @@ import com.fittrack.app.data.model.PlanExercise
 import com.fittrack.app.data.model.TrainingPlan
 import com.fittrack.app.data.repository.FitTrackRepository
 import com.fittrack.app.ui.session.NewSessionActivity
+import com.fittrack.app.util.formatWeightKg
 import com.google.android.material.appbar.MaterialToolbar
 import kotlinx.coroutines.launch
 
@@ -95,7 +96,12 @@ class PlansActivity : AppCompatActivity() {
     private fun createPlan(name: String) {
         lifecycleScope.launch {
             FitTrackRepository.createPlan(name)
-                .onSuccess { refresh() }
+                .onSuccess { plan ->
+                    plans.add(0, plan)
+                    adapter.notifyItemInserted(0)
+                    rvPlans.scrollToPosition(0)
+                    tvEmpty.visibility = View.GONE
+                }
                 .onFailure { toast("Couldn't create plan: ${it.message}") }
         }
     }
@@ -170,7 +176,7 @@ class PlansActivity : AppCompatActivity() {
         dialog.show()
     }
 
-    /** Pick an exercise from the backend catalog and attach it to the plan. */
+    /** Pick an exercise from the backend catalog or create a new one, then attach it. */
     private fun showExercisePickerDialog(
         planId: Int,
         onAdded: (PlanExercise) -> Unit,
@@ -178,25 +184,44 @@ class PlansActivity : AppCompatActivity() {
         lifecycleScope.launch {
             FitTrackRepository.getExercises()
                 .onSuccess { catalog ->
-                    if (catalog.isEmpty()) {
-                        AlertDialog.Builder(this@PlansActivity)
-                            .setTitle("No exercises")
-                            .setMessage("Add exercises to the database first.")
-                            .setPositiveButton("OK", null)
-                            .show()
-                        return@onSuccess
-                    }
-                    val names = catalog.map { it.name }.toTypedArray()
+                    val createLabel = "+ Create new exercise…"
+                    val items = (listOf(createLabel) + catalog.map { it.name }).toTypedArray()
                     AlertDialog.Builder(this@PlansActivity)
                         .setTitle("Add exercise")
-                        .setItems(names) { _, which ->
-                            attachExercise(planId, catalog[which], onAdded)
+                        .setItems(items) { _, which ->
+                            if (which == 0) showCreateExerciseDialog(planId, onAdded)
+                            else attachExercise(planId, catalog[which - 1], onAdded)
                         }
                         .setNegativeButton("Cancel", null)
                         .show()
                 }
                 .onFailure { toast("Couldn't load exercises: ${it.message}") }
         }
+    }
+
+    /** Prompt for a new exercise name, save it to the catalog, then attach to the plan. */
+    private fun showCreateExerciseDialog(
+        planId: Int,
+        onAdded: (PlanExercise) -> Unit,
+    ) {
+        val input = EditText(this).apply {
+            hint = "Exercise name"
+            setPadding(48, 24, 48, 24)
+        }
+        AlertDialog.Builder(this)
+            .setTitle("New Exercise")
+            .setView(input)
+            .setPositiveButton("Create") { _, _ ->
+                val name = input.text.toString().trim()
+                if (name.isEmpty()) return@setPositiveButton
+                lifecycleScope.launch {
+                    FitTrackRepository.createExercise(name)
+                        .onSuccess { exercise -> attachExercise(planId, exercise, onAdded) }
+                        .onFailure { toast("Couldn't create exercise: ${it.message}") }
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun attachExercise(
@@ -213,10 +238,35 @@ class PlansActivity : AppCompatActivity() {
 
     // ── Adapter: top-level plans list ────────────────────────────────
 
+    private fun confirmDeletePlan(plan: TrainingPlan) {
+        AlertDialog.Builder(this)
+            .setTitle("Delete plan?")
+            .setMessage("\"${plan.name}\" will be removed. Past sessions that used it are kept.")
+            .setPositiveButton("Delete") { _, _ -> deletePlan(plan) }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun deletePlan(plan: TrainingPlan) {
+        lifecycleScope.launch {
+            FitTrackRepository.deletePlan(plan.id)
+                .onSuccess {
+                    val idx = plans.indexOfFirst { it.id == plan.id }
+                    if (idx >= 0) {
+                        plans.removeAt(idx)
+                        adapter.notifyItemRemoved(idx)
+                        tvEmpty.visibility = if (plans.isEmpty()) View.VISIBLE else View.GONE
+                    }
+                }
+                .onFailure { toast("Couldn't delete plan: ${it.message}") }
+        }
+    }
+
     private inner class PlansAdapter : RecyclerView.Adapter<PlansAdapter.VH>() {
         inner class VH(view: View) : RecyclerView.ViewHolder(view) {
             val name: TextView = view.findViewById(R.id.tvPlanName)
             val meta: TextView = view.findViewById(R.id.tvPlanMeta)
+            val delete: ImageButton = view.findViewById(R.id.btnDelete)
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
@@ -233,6 +283,10 @@ class PlansActivity : AppCompatActivity() {
             val count = plan.planExercises.size
             holder.meta.text = "$count " + if (count == 1) "exercise" else "exercises"
             holder.itemView.setOnClickListener { showPlanDetailDialog(plan) }
+            holder.delete.setOnClickListener {
+                val idx = holder.bindingAdapterPosition
+                if (idx != RecyclerView.NO_POSITION) confirmDeletePlan(plans[idx])
+            }
         }
     }
 
@@ -259,7 +313,7 @@ class PlansActivity : AppCompatActivity() {
         override fun onBindViewHolder(holder: VH, position: Int) {
             val e = items[position]
             holder.name.text = e.exerciseName
-            holder.meta.text = "${e.sets} × ${e.reps} @ ${formatWeight(e.weight)}"
+            holder.meta.text = "${e.sets} × ${e.reps} @ ${formatWeightKg(e.weight)}"
             holder.remove.setOnClickListener {
                 val idx = holder.bindingAdapterPosition
                 if (idx != RecyclerView.NO_POSITION) onRemove(idx)
@@ -267,9 +321,4 @@ class PlansActivity : AppCompatActivity() {
         }
     }
 
-    /** "60.00" → "60 kg", "62.50" → "62.5 kg". */
-    private fun formatWeight(weight: String): String {
-        val d = weight.toDoubleOrNull() ?: return "$weight kg"
-        return if (d == d.toLong().toDouble()) "${d.toLong()} kg" else "$d kg"
-    }
 }

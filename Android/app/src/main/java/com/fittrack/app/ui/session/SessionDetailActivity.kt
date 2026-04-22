@@ -16,6 +16,7 @@ import com.fittrack.app.data.model.ExerciseLog
 import com.fittrack.app.data.repository.FitTrackRepository
 import com.fittrack.app.util.ExerciseStatus
 import com.fittrack.app.util.StatusUi
+import com.fittrack.app.util.formatWeightKg
 import com.google.android.material.appbar.MaterialToolbar
 import kotlinx.coroutines.launch
 
@@ -97,13 +98,8 @@ class SessionDetailActivity : AppCompatActivity() {
         override fun onBindViewHolder(holder: VH, position: Int) {
             val log = logs[position]
             holder.name.text = log.exerciseName
-            holder.meta.text = "${log.sets} × ${log.reps} @ ${formatWeight(log.weight)}"
+            holder.meta.text = "${log.sets} × ${log.reps} @ ${formatWeightKg(log.weight)}"
             StatusUi.apply(holder.status, ExerciseStatus.fromApi(log.status))
-        }
-
-        private fun formatWeight(weight: String): String {
-            val d = weight.toDoubleOrNull() ?: return "$weight kg"
-            return if (d == d.toLong().toDouble()) "${d.toLong()} kg" else "$d kg"
         }
     }
 }

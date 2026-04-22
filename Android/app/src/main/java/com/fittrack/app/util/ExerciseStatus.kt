@@ -11,7 +11,7 @@ enum class ExerciseStatus(val apiValue: String?) {
     TODO(null),          // not yet set by the user — not persisted
     DONE("done"),
     SKIPPED("skipped"),
-    NOT_DONE("not_done");
+    NOT_DONE("not_done"); // historical only — older sessions may still carry this
 
     companion object {
         /** Parse the backend's status string. Defaults to DONE if missing/unknown. */

@@ -10,5 +10,7 @@
     <color name="surfaceGray">#3A3A3A</color>
     <color name="onSurfaceMuted">#BBBBBB</color>
 
-    <color name="dangerRed">#FF5252</color>
+    <color name="dangerRed">#D32F2F</color>
+    <color name="disabledGray">#555555</color>
+    <color name="disabledOnGray">#999999</color>
 </resources>

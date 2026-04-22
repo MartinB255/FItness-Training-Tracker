@@ -28,7 +28,11 @@ import com.fittrack.app.ui.dashboard.DashboardActivity
 import com.fittrack.app.util.ExerciseStatus
 import com.fittrack.app.util.SessionTimerStore
 import com.fittrack.app.util.StatusUi
+import com.fittrack.app.util.formatWeight
 import com.google.android.material.appbar.MaterialToolbar
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -219,33 +223,39 @@ class NewSessionActivity : AppCompatActivity() {
      * starts from the latest numbers. Only rows marked DONE update the plan —
      * skipped/not-done entries keep the old defaults.
      */
-    private suspend fun syncPlanDefaults() {
-        for (row in rows) {
-            if (row.status != ExerciseStatus.DONE) continue
+    private suspend fun syncPlanDefaults() = coroutineScope {
+        rows.mapNotNull { row ->
+            if (row.status != ExerciseStatus.DONE) return@mapNotNull null
             val original = row.planExercise
             val newWeight = formatWeight(row.weight)
             if (row.sets == original.sets &&
                 row.reps == original.reps &&
-                newWeight == original.weight) continue
-            FitTrackRepository.updatePlanExercise(
-                id = original.id,
-                sets = row.sets,
-                reps = row.reps,
-                weight = newWeight,
-            )
-        }
+                newWeight == original.weight) return@mapNotNull null
+            async {
+                FitTrackRepository.updatePlanExercise(
+                    id = original.id,
+                    sets = row.sets,
+                    reps = row.reps,
+                    weight = newWeight,
+                )
+            }
+        }.awaitAll()
     }
 
     private fun onSessionSaved() {
         val done = rows.count { it.status == ExerciseStatus.DONE }
         val skipped = rows.count { it.status == ExerciseStatus.SKIPPED }
-        val notDone = rows.count { it.status == ExerciseStatus.NOT_DONE }
 
         SessionTimerStore.clear(this)
 
+        val message = buildString {
+            append("$done/${rows.size} exercises done")
+            if (skipped > 0) append(", $skipped skipped")
+            append(".")
+        }
         AlertDialog.Builder(this)
             .setTitle("Great workout!")
-            .setMessage("$done/${rows.size} exercises done, $skipped skipped, $notDone not done.")
+            .setMessage(message)
             .setCancelable(false)
             .setPositiveButton("OK") { _, _ ->
                 startActivity(Intent(this, DashboardActivity::class.java).apply {
@@ -315,7 +325,4 @@ class NewSessionActivity : AppCompatActivity() {
             }
     }
 
-    /** Format doubles without trailing ".0" — "60" not "60.0". */
-    private fun formatWeight(w: Double): String =
-        if (w == w.toLong().toDouble()) w.toLong().toString() else w.toString()
 }

@@ -46,10 +46,10 @@
         <item name="cornerSize">28dp</item>
     </style>
 
-    <!-- Orange pill-ish buttons -->
+    <!-- Orange pill-ish buttons (greyed out when disabled). -->
     <style name="Widget.FitTrack.Button" parent="Widget.Material3.Button">
-        <item name="backgroundTint">@color/primaryOrange</item>
-        <item name="android:textColor">@color/white</item>
+        <item name="backgroundTint">@color/button_background_tint</item>
+        <item name="android:textColor">@color/button_text_color</item>
         <item name="cornerRadius">24dp</item>
     </style>
 

@@ -6,8 +6,10 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
@@ -68,11 +70,40 @@ class SessionListActivity : AppCompatActivity() {
         }
     }
 
+    private fun confirmDelete(session: WorkoutSession) {
+        AlertDialog.Builder(this)
+            .setTitle("Delete session?")
+            .setMessage("This will permanently remove the session from ${session.date}.")
+            .setPositiveButton("Delete") { _, _ -> deleteSession(session) }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun deleteSession(session: WorkoutSession) {
+        lifecycleScope.launch {
+            FitTrackRepository.deleteSession(session.id)
+                .onSuccess {
+                    val idx = sessions.indexOfFirst { it.id == session.id }
+                    if (idx >= 0) {
+                        sessions.removeAt(idx)
+                        adapter.notifyItemRemoved(idx)
+                        tvEmpty.visibility = if (sessions.isEmpty()) View.VISIBLE else View.GONE
+                    }
+                }
+                .onFailure {
+                    Toast.makeText(this@SessionListActivity,
+                        "Couldn't delete session: ${it.message}",
+                        Toast.LENGTH_LONG).show()
+                }
+        }
+    }
+
     private inner class SessionsAdapter : RecyclerView.Adapter<SessionsAdapter.VH>() {
         inner class VH(view: View) : RecyclerView.ViewHolder(view) {
             val date: TextView = view.findViewById(R.id.tvDate)
             val plan: TextView = view.findViewById(R.id.tvPlan)
             val summary: TextView = view.findViewById(R.id.tvSummary)
+            val delete: ImageButton = view.findViewById(R.id.btnDelete)
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
@@ -95,6 +126,10 @@ class SessionListActivity : AppCompatActivity() {
                     Intent(this@SessionListActivity, SessionDetailActivity::class.java)
                         .putExtra(SessionDetailActivity.EXTRA_SESSION_ID, s.id)
                 )
+            }
+            holder.delete.setOnClickListener {
+                val idx = holder.bindingAdapterPosition
+                if (idx != RecyclerView.NO_POSITION) confirmDelete(sessions[idx])
             }
         }
     }
