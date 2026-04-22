@@ -59,6 +59,7 @@ class NewSessionActivity : AppCompatActivity() {
     private lateinit var tvPlanName: TextView
     private lateinit var rv: RecyclerView
     private lateinit var btnSave: Button
+    private lateinit var btnCancel: Button
 
     private val rows = mutableListOf<Row>()
     private var planId: Int = -1
@@ -77,6 +78,7 @@ class NewSessionActivity : AppCompatActivity() {
         tvPlanName = findViewById(R.id.tvPlanName)
         rv = findViewById(R.id.rvWorkout)
         btnSave = findViewById(R.id.btnSave)
+        btnCancel = findViewById(R.id.btnCancel)
 
         planId = intent.getIntExtra(EXTRA_PLAN_ID, -1)
         if (planId < 0) {
@@ -89,8 +91,25 @@ class NewSessionActivity : AppCompatActivity() {
 
         btnSave.setOnClickListener { onSaveClicked() }
         btnSave.isEnabled = false
+        btnCancel.setOnClickListener { confirmCancel() }
 
         loadPlan()
+    }
+
+    private fun confirmCancel() {
+        AlertDialog.Builder(this)
+            .setTitle("Cancel workout?")
+            .setMessage("The current session will be discarded.")
+            .setPositiveButton("Discard") { _, _ ->
+                chronometer.stop()
+                SessionTimerStore.clear(this)
+                startActivity(Intent(this, DashboardActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_CLEAR_TOP
+                })
+                finish()
+            }
+            .setNegativeButton("Keep training", null)
+            .show()
     }
 
     private fun loadPlan() {
@@ -181,7 +200,10 @@ class NewSessionActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             FitTrackRepository.createSession(body)
-                .onSuccess { onSessionSaved() }
+                .onSuccess {
+                    syncPlanDefaults()
+                    onSessionSaved()
+                }
                 .onFailure {
                     btnSave.isEnabled = true
                     chronometer.start()
@@ -189,6 +211,28 @@ class NewSessionActivity : AppCompatActivity() {
                         "Couldn't save session: ${it.message}",
                         Toast.LENGTH_LONG).show()
                 }
+        }
+    }
+
+    /**
+     * Persist the edited sets/reps/weight back to the plan so the next session
+     * starts from the latest numbers. Only rows marked DONE update the plan —
+     * skipped/not-done entries keep the old defaults.
+     */
+    private suspend fun syncPlanDefaults() {
+        for (row in rows) {
+            if (row.status != ExerciseStatus.DONE) continue
+            val original = row.planExercise
+            val newWeight = formatWeight(row.weight)
+            if (row.sets == original.sets &&
+                row.reps == original.reps &&
+                newWeight == original.weight) continue
+            FitTrackRepository.updatePlanExercise(
+                id = original.id,
+                sets = row.sets,
+                reps = row.reps,
+                weight = newWeight,
+            )
         }
     }
 

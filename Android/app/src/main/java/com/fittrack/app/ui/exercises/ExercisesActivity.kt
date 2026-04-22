@@ -112,12 +112,46 @@ class ExercisesActivity : AppCompatActivity() {
         }
     }
 
+    private fun showEditDialog(exercise: Exercise) {
+        val input = EditText(this).apply {
+            hint = "Exercise name"
+            setText(exercise.name)
+            setSelection(text.length)
+            setPadding(48, 24, 48, 24)
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Rename Exercise")
+            .setView(input)
+            .setPositiveButton("Save") { _, _ ->
+                val name = input.text.toString().trim()
+                if (name.isNotEmpty() && name != exercise.name) {
+                    renameExercise(exercise, name)
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun renameExercise(exercise: Exercise, newName: String) {
+        lifecycleScope.launch {
+            FitTrackRepository.updateExercise(exercise.id, newName)
+                .onSuccess { updated ->
+                    val idx = items.indexOfFirst { it.id == updated.id }
+                    if (idx >= 0) items[idx] = updated
+                    items.sortBy { it.name.lowercase() }
+                    adapter.notifyDataSetChanged()
+                }
+                .onFailure { toast("Couldn't rename: ${it.message}") }
+        }
+    }
+
     private fun toast(message: String) =
         Toast.makeText(this, message, Toast.LENGTH_LONG).show()
 
     private inner class ExercisesAdapter : RecyclerView.Adapter<ExercisesAdapter.VH>() {
         inner class VH(view: View) : RecyclerView.ViewHolder(view) {
             val name: TextView = view.findViewById(R.id.tvExerciseName)
+            val edit: ImageButton = view.findViewById(R.id.btnEdit)
             val delete: ImageButton = view.findViewById(R.id.btnDelete)
         }
 
@@ -132,6 +166,7 @@ class ExercisesActivity : AppCompatActivity() {
         override fun onBindViewHolder(holder: VH, position: Int) {
             val e = items[position]
             holder.name.text = e.name
+            holder.edit.setOnClickListener { showEditDialog(e) }
             holder.delete.setOnClickListener {
                 AlertDialog.Builder(this@ExercisesActivity)
                     .setTitle("Delete ${e.name}?")

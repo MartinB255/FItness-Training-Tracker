@@ -66,6 +66,12 @@ data class CreatePlanExerciseRequest(
     val order: Int = 0,
 )
 
+data class UpdatePlanExerciseRequest(
+    val sets: Int,
+    val reps: Int,
+    val weight: String,
+)
+
 // ═══════════════════════════════════════════════════════════════════
 //  WORKOUT SESSIONS  (with nested exercise_logs)
 // ═══════════════════════════════════════════════════════════════════

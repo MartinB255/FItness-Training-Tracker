@@ -112,13 +112,21 @@ class PlansActivity : AppCompatActivity() {
         // Local mutable copy so remove reflects immediately in the dialog.
         val planExercises = plan.planExercises.toMutableList()
 
+        fun syncOuterList() {
+            val idx = plans.indexOfFirst { it.id == plan.id }
+            if (idx >= 0) {
+                plans[idx] = plans[idx].copy(planExercises = planExercises.toList())
+                adapter.notifyItemChanged(idx)
+            }
+        }
+
         val planAdapter = PlanExercisesAdapter(planExercises) { idx ->
             val removed = planExercises[idx]
             lifecycleScope.launch {
                 FitTrackRepository.removePlanExercise(removed.id)
                     .onSuccess {
                         planExercises.removeAt(idx)
-                        adapter.notifyDataSetChanged() // outer list count
+                        syncOuterList()
                         tvEmptyDlg.visibility =
                             if (planExercises.isEmpty()) View.VISIBLE else View.GONE
                     }
@@ -140,7 +148,7 @@ class PlansActivity : AppCompatActivity() {
                 planExercises.add(added)
                 planAdapter.notifyItemInserted(planExercises.size - 1)
                 tvEmptyDlg.visibility = View.GONE
-                adapter.notifyDataSetChanged() // outer list count
+                syncOuterList()
             }
         }
         btnStart.setOnClickListener {

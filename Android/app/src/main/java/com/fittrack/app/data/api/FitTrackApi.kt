@@ -29,6 +29,12 @@ interface FitTrackApi {
     @POST("exercises/")
     suspend fun createExercise(@Body body: CreateExerciseRequest): Response<Exercise>
 
+    @PATCH("exercises/{id}/")
+    suspend fun updateExercise(
+        @Path("id") id: Int,
+        @Body body: CreateExerciseRequest,
+    ): Response<Exercise>
+
     @DELETE("exercises/{id}/")
     suspend fun deleteExercise(@Path("id") id: Int): Response<Unit>
 
@@ -57,6 +63,12 @@ interface FitTrackApi {
     @POST("plan-exercises/")
     suspend fun addPlanExercise(
         @Body body: CreatePlanExerciseRequest,
+    ): Response<PlanExercise>
+
+    @PATCH("plan-exercises/{id}/")
+    suspend fun updatePlanExercise(
+        @Path("id") id: Int,
+        @Body body: UpdatePlanExerciseRequest,
     ): Response<PlanExercise>
 
     @DELETE("plan-exercises/{id}/")

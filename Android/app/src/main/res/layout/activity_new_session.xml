@@ -54,12 +54,28 @@
         android:layout_weight="1"
         android:layout_marginTop="12dp" />
 
-    <Button
-        android:id="@+id/btnSave"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Save Workout"
-        android:enabled="false"
-        android:layout_marginTop="12dp" />
+        android:orientation="horizontal"
+        android:layout_marginTop="12dp">
+
+        <Button
+            android:id="@+id/btnCancel"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Cancel"
+            android:layout_marginEnd="8dp" />
+
+        <Button
+            android:id="@+id/btnSave"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Save Workout"
+            android:enabled="false" />
+    </LinearLayout>
 
 </LinearLayout>

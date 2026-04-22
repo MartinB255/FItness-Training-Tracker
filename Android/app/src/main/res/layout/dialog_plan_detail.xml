@@ -7,6 +7,13 @@
     android:paddingHorizontal="16dp"
     android:paddingTop="8dp">
 
+    <Button
+        android:id="@+id/btnStartWorkout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Start Workout"
+        android:layout_marginBottom="12dp" />
+
     <TextView
         android:id="@+id/tvEmpty"
         android:layout_width="match_parent"
@@ -30,12 +37,5 @@
         android:layout_height="wrap_content"
         android:text="Add Exercise"
         android:layout_marginTop="4dp" />
-
-    <Button
-        android:id="@+id/btnStartWorkout"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Start Workout"
-        android:layout_marginTop="12dp" />
 
 </LinearLayout>

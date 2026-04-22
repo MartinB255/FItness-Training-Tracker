@@ -89,6 +89,9 @@ object FitTrackRepository {
     suspend fun createExercise(name: String): Result<Exercise> =
         safeCall { api.createExercise(CreateExerciseRequest(name)) }
 
+    suspend fun updateExercise(id: Int, name: String): Result<Exercise> =
+        safeCall { api.updateExercise(id, CreateExerciseRequest(name)) }
+
     suspend fun deleteExercise(id: Int): Result<Unit> =
         safeUnitCall { api.deleteExercise(id) }
 
@@ -122,6 +125,15 @@ object FitTrackRepository {
 
     suspend fun removePlanExercise(id: Int): Result<Unit> =
         safeUnitCall { api.removePlanExercise(id) }
+
+    suspend fun updatePlanExercise(
+        id: Int,
+        sets: Int,
+        reps: Int,
+        weight: String,
+    ): Result<PlanExercise> = safeCall {
+        api.updatePlanExercise(id, UpdatePlanExerciseRequest(sets, reps, weight))
+    }
 
     // ── Workout sessions ─────────────────────────────────────────
 
