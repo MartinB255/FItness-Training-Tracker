@@ -18,12 +18,9 @@ import retrofit2.converter.gson.GsonConverterFactory
  */
 object RetrofitClient {
 
-    // 10.0.2.2 is the Android emulator's alias for localhost
-    // If testing on a real device, use your PC's local IP instead
-    // (e.g. "http://192.168.1.42:8000/api/")
-    private const val BASE_URL =
-        "http://10.0.0.25:8000/api/"
-       // "http://10.0.2.2:8000/api/"
+    // 10.0.2.2 is the Android emulator's alias for the host machine's localhost.
+    // On a physical device, swap this for your PC's LAN IP (e.g. 192.168.1.42).
+    private const val BASE_URL = "http://10.0.0.25:8000/api/"
 
     lateinit var api: FitTrackApi
         private set

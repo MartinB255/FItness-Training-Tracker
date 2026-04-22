@@ -2,9 +2,9 @@ package com.fittrack.app.ui.session
 
 import android.content.Intent
 import android.os.Bundle
+import android.os.SystemClock
 import android.text.Editable
 import android.text.TextWatcher
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -12,39 +12,43 @@ import android.widget.Button
 import android.widget.Chronometer
 import android.widget.EditText
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.fittrack.app.R
-import com.fittrack.app.data.dummy.DummyData
-import com.fittrack.app.data.dummy.DummyData.ExerciseStatus
-import com.fittrack.app.data.dummy.DummyData.SessionLog
+import com.fittrack.app.data.model.CreateLogRequest
+import com.fittrack.app.data.model.CreateSessionRequest
+import com.fittrack.app.data.model.PlanExercise
+import com.fittrack.app.data.repository.FitTrackRepository
 import com.fittrack.app.ui.dashboard.DashboardActivity
+import com.fittrack.app.util.ExerciseStatus
 import com.fittrack.app.util.SessionTimerStore
 import com.fittrack.app.util.StatusUi
 import com.google.android.material.appbar.MaterialToolbar
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 /**
- * Active workout screen. Chronometer ticks while you train; each exercise has
+ * Active workout screen. Chronometer ticks while the user trains; each exercise has
  * editable sets/reps/weight and a tap-to-cycle status dot. Save is only enabled
  * once every exercise has a concrete status (no TODO).
  *
- * Chronometer base is persisted to SharedPreferences so the Dashboard can show
- * the same timer if the user navigates away mid-session.
+ * On save we POST /sessions/ with nested exercise_logs and the total duration
+ * in seconds (pulled from the chronometer).
  */
 class NewSessionActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_PLAN_ID = "plan_id"
-        private const val TAG = "NewSessionActivity"
     }
 
     /** Mutable per-row state for the active session. */
     private data class Row(
-        val exerciseName: String,
+        val planExercise: PlanExercise,
         var sets: Int,
         var reps: Int,
         var weight: Double,
@@ -57,7 +61,8 @@ class NewSessionActivity : AppCompatActivity() {
     private lateinit var btnSave: Button
 
     private val rows = mutableListOf<Row>()
-    private lateinit var planName: String
+    private var planId: Int = -1
+    private var planName: String = ""
     private val adapter = WorkoutAdapter()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -73,34 +78,57 @@ class NewSessionActivity : AppCompatActivity() {
         rv = findViewById(R.id.rvWorkout)
         btnSave = findViewById(R.id.btnSave)
 
-        val planId = intent.getIntExtra(EXTRA_PLAN_ID, -1)
-        val plan = DummyData.planById(planId)
-        if (plan == null) {
-            AlertDialog.Builder(this)
-                .setTitle("Plan missing")
-                .setMessage("Couldn't load the plan for this workout.")
-                .setPositiveButton("OK") { _, _ -> finish() }
-                .show()
+        planId = intent.getIntExtra(EXTRA_PLAN_ID, -1)
+        if (planId < 0) {
+            finishWithMissingPlan()
             return
         }
-        planName = plan.name
-        tvPlanName.text = planName
-
-        // Seed rows from the plan's default sets/reps/weight.
-        rows.clear()
-        rows.addAll(plan.exercises.map {
-            Row(it.exerciseName, it.sets, it.reps, it.weight)
-        })
 
         rv.layoutManager = LinearLayoutManager(this)
         rv.adapter = adapter
 
-        startOrResumeTimer()
         btnSave.setOnClickListener { onSaveClicked() }
-        refreshSaveEnabled()
+        btnSave.isEnabled = false
+
+        loadPlan()
     }
 
-    /** Use the stored base if one exists, otherwise start a fresh session now. */
+    private fun loadPlan() {
+        lifecycleScope.launch {
+            FitTrackRepository.getPlan(planId)
+                .onSuccess { plan ->
+                    planName = plan.name
+                    tvPlanName.text = planName
+                    rows.clear()
+                    rows.addAll(plan.planExercises.map {
+                        Row(
+                            planExercise = it,
+                            sets = it.sets,
+                            reps = it.reps,
+                            weight = it.weight.toDoubleOrNull() ?: 0.0,
+                        )
+                    })
+                    adapter.notifyDataSetChanged()
+                    startOrResumeTimer()
+                    refreshSaveEnabled()
+                }
+                .onFailure {
+                    Toast.makeText(this@NewSessionActivity,
+                        "Couldn't load plan: ${it.message}", Toast.LENGTH_LONG).show()
+                    finish()
+                }
+        }
+    }
+
+    private fun finishWithMissingPlan() {
+        AlertDialog.Builder(this)
+            .setTitle("Plan missing")
+            .setMessage("Couldn't load the plan for this workout.")
+            .setPositiveButton("OK") { _, _ -> finish() }
+            .show()
+    }
+
+    /** Use the stored base if one exists for this plan, otherwise start fresh. */
     private fun startOrResumeTimer() {
         val existingBase = SessionTimerStore.baseOrNull(this)
         val existingPlan = SessionTimerStore.planName(this)
@@ -124,28 +152,56 @@ class NewSessionActivity : AppCompatActivity() {
     }
 
     private fun refreshSaveEnabled() {
-        btnSave.isEnabled = rows.none { it.status == ExerciseStatus.TODO }
+        btnSave.isEnabled = rows.isNotEmpty() && rows.none { it.status == ExerciseStatus.TODO }
     }
 
     private fun onSaveClicked() {
+        val elapsedMs = SystemClock.elapsedRealtime() - chronometer.base
+        val durationSeconds = (elapsedMs / 1000L).toInt().coerceAtLeast(0)
+        btnSave.isEnabled = false
+        chronometer.stop()
+
+        val logs = rows.map { row ->
+            CreateLogRequest(
+                exercise = row.planExercise.exercise,
+                exerciseName = row.planExercise.exerciseName,
+                sets = row.sets,
+                reps = row.reps,
+                weight = formatWeight(row.weight),
+                status = row.status.apiValue ?: "done",
+            )
+        }
+        val body = CreateSessionRequest(
+            trainingPlan = planId,
+            date = LocalDate.now().toString(),
+            durationSeconds = durationSeconds,
+            completed = true,
+            exerciseLogs = logs,
+        )
+
+        lifecycleScope.launch {
+            FitTrackRepository.createSession(body)
+                .onSuccess { onSessionSaved() }
+                .onFailure {
+                    btnSave.isEnabled = true
+                    chronometer.start()
+                    Toast.makeText(this@NewSessionActivity,
+                        "Couldn't save session: ${it.message}",
+                        Toast.LENGTH_LONG).show()
+                }
+        }
+    }
+
+    private fun onSessionSaved() {
         val done = rows.count { it.status == ExerciseStatus.DONE }
         val skipped = rows.count { it.status == ExerciseStatus.SKIPPED }
-        val refused = rows.count { it.status == ExerciseStatus.REFUSED }
-
-        // Build logs + add to dummy history so the Sessions screen reflects it.
-        val logs = rows.map {
-            SessionLog(it.exerciseName, it.sets, it.reps, it.weight, it.status)
-        }
-        DummyData.addSession(LocalDate.now().toString(), planName, logs)
-
-        Log.d(TAG, "Saved session: plan=$planName, logs=$logs")
+        val notDone = rows.count { it.status == ExerciseStatus.NOT_DONE }
 
         SessionTimerStore.clear(this)
-        chronometer.stop()
 
         AlertDialog.Builder(this)
             .setTitle("Great workout!")
-            .setMessage("$done/${rows.size} exercises done, $skipped skipped, $refused not done.")
+            .setMessage("$done/${rows.size} exercises done, $skipped skipped, $notDone not done.")
             .setCancelable(false)
             .setPositiveButton("OK") { _, _ ->
                 startActivity(Intent(this, DashboardActivity::class.java).apply {
@@ -166,7 +222,7 @@ class NewSessionActivity : AppCompatActivity() {
             val reps: EditText = view.findViewById(R.id.etReps)
             val weight: EditText = view.findViewById(R.id.etWeight)
 
-            // Keep references so we can detach watchers on rebind.
+            // Kept so we can detach watchers when rebinding (avoid stale callbacks).
             var setsWatcher: TextWatcher? = null
             var repsWatcher: TextWatcher? = null
             var weightWatcher: TextWatcher? = null
@@ -182,9 +238,8 @@ class NewSessionActivity : AppCompatActivity() {
 
         override fun onBindViewHolder(holder: VH, position: Int) {
             val row = rows[position]
-            holder.name.text = row.exerciseName
+            holder.name.text = row.planExercise.exerciseName
 
-            // Detach previous watchers before setting text (avoid stray callbacks).
             holder.setsWatcher?.let { holder.sets.removeTextChangedListener(it) }
             holder.repsWatcher?.let { holder.reps.removeTextChangedListener(it) }
             holder.weightWatcher?.let { holder.weight.removeTextChangedListener(it) }
@@ -216,6 +271,7 @@ class NewSessionActivity : AppCompatActivity() {
             }
     }
 
+    /** Format doubles without trailing ".0" — "60" not "60.0". */
     private fun formatWeight(w: Double): String =
         if (w == w.toLong().toDouble()) w.toLong().toString() else w.toString()
 }

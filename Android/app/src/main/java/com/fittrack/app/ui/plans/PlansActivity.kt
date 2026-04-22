@@ -9,27 +9,32 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.fittrack.app.R
-import com.fittrack.app.data.dummy.DummyData
-import com.fittrack.app.data.dummy.DummyData.PlanExercise
-import com.fittrack.app.data.dummy.DummyData.TrainingPlan
+import com.fittrack.app.data.model.Exercise
+import com.fittrack.app.data.model.PlanExercise
+import com.fittrack.app.data.model.TrainingPlan
+import com.fittrack.app.data.repository.FitTrackRepository
 import com.fittrack.app.ui.session.NewSessionActivity
 import com.google.android.material.appbar.MaterialToolbar
+import kotlinx.coroutines.launch
 
 /**
- * Training Plans list. Tapping a plan opens a detail dialog where the
- * user can add exercises from the Exercise Database, remove exercises,
- * or start a workout based on the plan.
+ * Training Plans list. Each row opens a detail dialog where the user can add
+ * exercises from the Exercise Database, remove exercises from the plan, or
+ * start a workout using the plan.
  */
 class PlansActivity : AppCompatActivity() {
 
     private lateinit var rvPlans: RecyclerView
     private lateinit var tvEmpty: TextView
+    private val plans = mutableListOf<TrainingPlan>()
     private val adapter = PlansAdapter()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,9 +59,20 @@ class PlansActivity : AppCompatActivity() {
     }
 
     private fun refresh() {
-        adapter.notifyDataSetChanged()
-        tvEmpty.visibility = if (DummyData.plans.isEmpty()) View.VISIBLE else View.GONE
+        lifecycleScope.launch {
+            FitTrackRepository.getPlans()
+                .onSuccess { list ->
+                    plans.clear()
+                    plans.addAll(list)
+                    adapter.notifyDataSetChanged()
+                    tvEmpty.visibility = if (plans.isEmpty()) View.VISIBLE else View.GONE
+                }
+                .onFailure { toast("Failed to load plans: ${it.message}") }
+        }
     }
+
+    private fun toast(message: String) =
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
 
     // ── Create-plan dialog ────────────────────────────────────────────
 
@@ -70,13 +86,18 @@ class PlansActivity : AppCompatActivity() {
             .setView(input)
             .setPositiveButton("Create") { _, _ ->
                 val name = input.text.toString().trim()
-                if (name.isNotEmpty()) {
-                    DummyData.addPlan(name)
-                    refresh()
-                }
+                if (name.isNotEmpty()) createPlan(name)
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    private fun createPlan(name: String) {
+        lifecycleScope.launch {
+            FitTrackRepository.createPlan(name)
+                .onSuccess { refresh() }
+                .onFailure { toast("Couldn't create plan: ${it.message}") }
+        }
     }
 
     // ── Plan detail dialog ────────────────────────────────────────────
@@ -84,16 +105,29 @@ class PlansActivity : AppCompatActivity() {
     private fun showPlanDetailDialog(plan: TrainingPlan) {
         val view = LayoutInflater.from(this).inflate(R.layout.dialog_plan_detail, null)
         val rv = view.findViewById<RecyclerView>(R.id.rvPlanExercises)
-        val tvEmpty = view.findViewById<TextView>(R.id.tvEmpty)
+        val tvEmptyDlg = view.findViewById<TextView>(R.id.tvEmpty)
         val btnAdd = view.findViewById<Button>(R.id.btnAddExerciseToPlan)
         val btnStart = view.findViewById<Button>(R.id.btnStartWorkout)
 
-        val planAdapter = PlanExercisesAdapter(plan.exercises) {
-            tvEmpty.visibility = if (plan.exercises.isEmpty()) View.VISIBLE else View.GONE
+        // Local mutable copy so remove reflects immediately in the dialog.
+        val planExercises = plan.planExercises.toMutableList()
+
+        val planAdapter = PlanExercisesAdapter(planExercises) { idx ->
+            val removed = planExercises[idx]
+            lifecycleScope.launch {
+                FitTrackRepository.removePlanExercise(removed.id)
+                    .onSuccess {
+                        planExercises.removeAt(idx)
+                        adapter.notifyDataSetChanged() // outer list count
+                        tvEmptyDlg.visibility =
+                            if (planExercises.isEmpty()) View.VISIBLE else View.GONE
+                    }
+                    .onFailure { toast("Couldn't remove: ${it.message}") }
+            }
         }
         rv.layoutManager = LinearLayoutManager(this)
         rv.adapter = planAdapter
-        tvEmpty.visibility = if (plan.exercises.isEmpty()) View.VISIBLE else View.GONE
+        tvEmptyDlg.visibility = if (planExercises.isEmpty()) View.VISIBLE else View.GONE
 
         val dialog = AlertDialog.Builder(this)
             .setTitle(plan.name)
@@ -102,14 +136,15 @@ class PlansActivity : AppCompatActivity() {
             .create()
 
         btnAdd.setOnClickListener {
-            showExercisePickerDialog(plan) {
-                planAdapter.notifyDataSetChanged()
-                tvEmpty.visibility = if (plan.exercises.isEmpty()) View.VISIBLE else View.GONE
-                adapter.notifyDataSetChanged() // update count in outer list
+            showExercisePickerDialog(plan.id) { added ->
+                planExercises.add(added)
+                planAdapter.notifyItemInserted(planExercises.size - 1)
+                tvEmptyDlg.visibility = View.GONE
+                adapter.notifyDataSetChanged() // outer list count
             }
         }
         btnStart.setOnClickListener {
-            if (plan.exercises.isEmpty()) {
+            if (planExercises.isEmpty()) {
                 AlertDialog.Builder(this)
                     .setTitle("Empty plan")
                     .setMessage("Add at least one exercise before starting a workout.")
@@ -127,26 +162,45 @@ class PlansActivity : AppCompatActivity() {
         dialog.show()
     }
 
-    /** Pick an exercise from the database and add it to `plan` with default values. */
-    private fun showExercisePickerDialog(plan: TrainingPlan, onAdded: () -> Unit) {
-        val names = DummyData.exercises.map { it.name }.toTypedArray()
-        if (names.isEmpty()) {
-            AlertDialog.Builder(this)
-                .setTitle("No exercises")
-                .setMessage("Add exercises to the database first.")
-                .setPositiveButton("OK", null)
-                .show()
-            return
+    /** Pick an exercise from the backend catalog and attach it to the plan. */
+    private fun showExercisePickerDialog(
+        planId: Int,
+        onAdded: (PlanExercise) -> Unit,
+    ) {
+        lifecycleScope.launch {
+            FitTrackRepository.getExercises()
+                .onSuccess { catalog ->
+                    if (catalog.isEmpty()) {
+                        AlertDialog.Builder(this@PlansActivity)
+                            .setTitle("No exercises")
+                            .setMessage("Add exercises to the database first.")
+                            .setPositiveButton("OK", null)
+                            .show()
+                        return@onSuccess
+                    }
+                    val names = catalog.map { it.name }.toTypedArray()
+                    AlertDialog.Builder(this@PlansActivity)
+                        .setTitle("Add exercise")
+                        .setItems(names) { _, which ->
+                            attachExercise(planId, catalog[which], onAdded)
+                        }
+                        .setNegativeButton("Cancel", null)
+                        .show()
+                }
+                .onFailure { toast("Couldn't load exercises: ${it.message}") }
         }
-        AlertDialog.Builder(this)
-            .setTitle("Add exercise")
-            .setItems(names) { _, which ->
-                val ex = DummyData.exercises[which]
-                plan.exercises.add(PlanExercise(ex.id, ex.name, 3, 10, 0.0))
-                onAdded()
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
+    }
+
+    private fun attachExercise(
+        planId: Int,
+        exercise: Exercise,
+        onAdded: (PlanExercise) -> Unit,
+    ) {
+        lifecycleScope.launch {
+            FitTrackRepository.addPlanExercise(planId, exercise.id)
+                .onSuccess(onAdded)
+                .onFailure { toast("Couldn't add: ${it.message}") }
+        }
     }
 
     // ── Adapter: top-level plans list ────────────────────────────────
@@ -163,12 +217,12 @@ class PlansActivity : AppCompatActivity() {
             return VH(v)
         }
 
-        override fun getItemCount() = DummyData.plans.size
+        override fun getItemCount() = plans.size
 
         override fun onBindViewHolder(holder: VH, position: Int) {
-            val plan = DummyData.plans[position]
+            val plan = plans[position]
             holder.name.text = plan.name
-            val count = plan.exercises.size
+            val count = plan.planExercises.size
             holder.meta.text = "$count " + if (count == 1) "exercise" else "exercises"
             holder.itemView.setOnClickListener { showPlanDetailDialog(plan) }
         }
@@ -178,7 +232,7 @@ class PlansActivity : AppCompatActivity() {
 
     private inner class PlanExercisesAdapter(
         private val items: MutableList<PlanExercise>,
-        private val onChanged: () -> Unit,
+        private val onRemove: (Int) -> Unit,
     ) : RecyclerView.Adapter<PlanExercisesAdapter.VH>() {
         inner class VH(view: View) : RecyclerView.ViewHolder(view) {
             val name: TextView = view.findViewById(R.id.tvName)
@@ -200,15 +254,14 @@ class PlansActivity : AppCompatActivity() {
             holder.meta.text = "${e.sets} × ${e.reps} @ ${formatWeight(e.weight)}"
             holder.remove.setOnClickListener {
                 val idx = holder.bindingAdapterPosition
-                if (idx != RecyclerView.NO_POSITION) {
-                    items.removeAt(idx)
-                    notifyItemRemoved(idx)
-                    onChanged()
-                }
+                if (idx != RecyclerView.NO_POSITION) onRemove(idx)
             }
         }
     }
 
-    private fun formatWeight(w: Double): String =
-        if (w == w.toLong().toDouble()) "${w.toLong()} kg" else "$w kg"
+    /** "60.00" → "60 kg", "62.50" → "62.5 kg". */
+    private fun formatWeight(weight: String): String {
+        val d = weight.toDoubleOrNull() ?: return "$weight kg"
+        return if (d == d.toLong().toDouble()) "${d.toLong()} kg" else "$d kg"
+    }
 }

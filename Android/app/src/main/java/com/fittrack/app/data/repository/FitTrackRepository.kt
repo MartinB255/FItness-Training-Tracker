@@ -7,14 +7,15 @@ import org.json.JSONObject
 import retrofit2.Response
 
 /**
- * Repository wraps all API calls with simple Result-based error handling.
- * ViewModels call repository methods instead of the API directly.
+ * Thin wrapper around [FitTrackApi] that returns Kotlin [Result]s and turns
+ * DRF error bodies into human-readable messages. Activities call into here
+ * from `lifecycleScope`; no caching — each screen re-fetches on resume.
  */
 object FitTrackRepository {
 
     private val api get() = RetrofitClient.api
 
-    // ── Helper: unwrap Retrofit Response into Result ────────────
+    // ── Helpers ──────────────────────────────────────────────────
 
     private suspend fun <T> safeCall(call: suspend () -> Response<T>): Result<T> {
         return try {
@@ -32,8 +33,8 @@ object FitTrackRepository {
         }
     }
 
-    // Special version for DELETE calls that return no body
-    private suspend fun safeDeleteCall(call: suspend () -> Response<Unit>): Result<Unit> {
+    /** DELETE and other no-body calls — success == 2xx, body isn't required. */
+    private suspend fun safeUnitCall(call: suspend () -> Response<Unit>): Result<Unit> {
         return try {
             val response = call()
             if (response.isSuccessful) Result.success(Unit)
@@ -46,12 +47,9 @@ object FitTrackRepository {
         }
     }
 
-    /**
-     * Turn a Django REST Framework error body into a human-readable string.
-     * Handles {"detail": "..."}, {"field": ["msg", ...]}, and plain strings.
-     */
+    /** Turn a DRF error body into a readable string. */
     private fun parseErrorMessage(raw: String, code: Int): String {
-        if (raw.isBlank()) return "Error $code"
+        if (raw.isBlank()) return "HTTP $code"
         return try {
             val json = JSONObject(raw)
             json.optString("detail").takeIf { it.isNotEmpty() }
@@ -60,97 +58,93 @@ object FitTrackRepository {
                     while (keys.hasNext()) {
                         val key = keys.next()
                         val value = when (val v = json.get(key)) {
-                            is JSONArray -> (0 until v.length()).joinToString(" ") { v.getString(it) }
+                            is JSONArray ->
+                                (0 until v.length()).joinToString(" ") { v.getString(it) }
                             else -> v.toString()
                         }
                         if (isNotEmpty()) append("\n")
                         append(value)
                     }
-                }.ifEmpty { "Error $code" }
+                }.ifEmpty { "HTTP $code" }
         } catch (_: Exception) {
             raw
         }
     }
 
-    // ── Auth ────────────────────────────────────────────────────
+    // ── Auth ─────────────────────────────────────────────────────
 
-    suspend fun login(username: String, password: String): Result<AuthResponse> {
-        return safeCall { api.login(LoginRequest(username, password)) }
+    suspend fun login(username: String, password: String): Result<AuthResponse> =
+        safeCall { api.login(LoginRequest(username, password)) }
+
+    suspend fun register(
+        username: String, email: String, password: String,
+    ): Result<AuthResponse> =
+        safeCall { api.register(RegisterRequest(username, email, password)) }
+
+    // ── Exercise catalog ─────────────────────────────────────────
+
+    suspend fun getExercises(): Result<List<Exercise>> =
+        safeCall { api.getExercises() }
+
+    suspend fun createExercise(name: String): Result<Exercise> =
+        safeCall { api.createExercise(CreateExerciseRequest(name)) }
+
+    suspend fun deleteExercise(id: Int): Result<Unit> =
+        safeUnitCall { api.deleteExercise(id) }
+
+    // ── Training plans ───────────────────────────────────────────
+
+    suspend fun getPlans(): Result<List<TrainingPlan>> =
+        safeCall { api.getPlans() }
+
+    suspend fun getPlan(id: Int): Result<TrainingPlan> =
+        safeCall { api.getPlan(id) }
+
+    suspend fun createPlan(name: String, description: String = ""): Result<TrainingPlan> =
+        safeCall { api.createPlan(CreatePlanRequest(name, description)) }
+
+    suspend fun deletePlan(id: Int): Result<Unit> =
+        safeUnitCall { api.deletePlan(id) }
+
+    // ── Plan-exercise links ──────────────────────────────────────
+
+    suspend fun addPlanExercise(
+        planId: Int,
+        exerciseId: Int,
+        sets: Int = 3,
+        reps: Int = 10,
+        weight: String = "0",
+    ): Result<PlanExercise> = safeCall {
+        api.addPlanExercise(
+            CreatePlanExerciseRequest(planId, exerciseId, sets, reps, weight),
+        )
     }
 
-    suspend fun register(username: String, email: String, password: String): Result<AuthResponse> {
-        return safeCall { api.register(RegisterRequest(username, email, password)) }
-    }
+    suspend fun removePlanExercise(id: Int): Result<Unit> =
+        safeUnitCall { api.removePlanExercise(id) }
 
-    // ── Training Plans ──────────────────────────────────────────
+    // ── Workout sessions ─────────────────────────────────────────
 
-    suspend fun getPlans(): Result<List<TrainingPlan>> {
-        return safeCall { api.getPlans() }
-    }
+    suspend fun getSessions(): Result<List<WorkoutSession>> =
+        safeCall { api.getSessions() }
 
-    suspend fun createPlan(name: String, description: String = ""): Result<TrainingPlan> {
-        return safeCall { api.createPlan(CreatePlanRequest(name, description)) }
-    }
+    suspend fun getSession(id: Int): Result<WorkoutSession> =
+        safeCall { api.getSession(id) }
 
-    suspend fun updatePlan(id: Int, name: String, description: String = ""): Result<TrainingPlan> {
-        return safeCall { api.updatePlan(id, CreatePlanRequest(name, description)) }
-    }
+    suspend fun createSession(body: CreateSessionRequest): Result<WorkoutSession> =
+        safeCall { api.createSession(body) }
 
-    suspend fun deletePlan(id: Int): Result<Unit> {
-        return safeDeleteCall { api.deletePlan(id) }
-    }
+    suspend fun deleteSession(id: Int): Result<Unit> =
+        safeUnitCall { api.deleteSession(id) }
 
-    // ── Exercises ───────────────────────────────────────────────
+    // ── Progress / charts ────────────────────────────────────────
 
-    suspend fun getExercises(planId: Int): Result<List<Exercise>> {
-        return safeCall { api.getExercises(planId) }
-    }
+    suspend fun getProgress(): Result<Map<String, List<ProgressPoint>>> =
+        safeCall { api.getProgress() }
 
-    suspend fun createExercise(
-        planId: Int, name: String, sets: Int, reps: Int, weight: String
-    ): Result<Exercise> {
-        return safeCall {
-            api.createExercise(CreateExerciseRequest(planId, name, sets, reps, weight))
-        }
-    }
+    suspend fun getWeeklyVolume(): Result<List<WeeklyVolume>> =
+        safeCall { api.getWeeklyVolume() }
 
-    suspend fun updateExercise(
-        id: Int, planId: Int, name: String, sets: Int, reps: Int, weight: String
-    ): Result<Exercise> {
-        return safeCall {
-            api.updateExercise(id, CreateExerciseRequest(planId, name, sets, reps, weight))
-        }
-    }
-
-    suspend fun deleteExercise(id: Int): Result<Unit> {
-        return safeDeleteCall { api.deleteExercise(id) }
-    }
-
-    // ── Workout Sessions ────────────────────────────────────────
-
-    suspend fun getSessions(): Result<List<WorkoutSession>> {
-        return safeCall { api.getSessions() }
-    }
-
-    suspend fun createSession(request: CreateSessionRequest): Result<WorkoutSession> {
-        return safeCall { api.createSession(request) }
-    }
-
-    suspend fun deleteSession(id: Int): Result<Unit> {
-        return safeDeleteCall { api.deleteSession(id) }
-    }
-
-    // ── Progress ────────────────────────────────────────────────
-
-    suspend fun getExerciseProgress(exerciseId: Int): Result<List<ProgressEntry>> {
-        return safeCall { api.getExerciseProgress(exerciseId) }
-    }
-
-    suspend fun getWeeklyVolume(): Result<List<WeeklyVolume>> {
-        return safeCall { api.getWeeklyVolume() }
-    }
-
-    suspend fun getDashboard(): Result<DashboardData> {
-        return safeCall { api.getDashboard() }
-    }
+    suspend fun getDashboard(): Result<DashboardData> =
+        safeCall { api.getDashboard() }
 }

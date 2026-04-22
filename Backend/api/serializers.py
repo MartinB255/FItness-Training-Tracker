@@ -1,21 +1,28 @@
 """
 DRF serializers — convert model instances to/from JSON.
 
-Nested serializers are used where it makes sense:
-  - TrainingPlan includes its Exercises
-  - WorkoutSession includes its ExerciseLogs
+Notable shapes:
+  - Exercise is a flat catalog entry: {id, name}
+  - TrainingPlan embeds its plan_exercises (each with exercise name + defaults)
+  - WorkoutSession embeds its exercise_logs (with status)
+  - WorkoutSessionCreateSerializer accepts a whole workout in one POST
 """
 
 from django.contrib.auth.models import User
 from rest_framework import serializers
 
-from .models import TrainingPlan, Exercise, WorkoutSession, ExerciseLog
+from .models import (
+    Exercise,
+    TrainingPlan,
+    PlanExercise,
+    WorkoutSession,
+    ExerciseLog,
+)
 
 
-# ── Auth serializers ─────────────────────────────────────────────
+# ── Auth ────────────────────────────────────────────────────────
 
 class RegisterSerializer(serializers.ModelSerializer):
-    """Handles user registration. Password is write-only."""
     password = serializers.CharField(write_only=True, min_length=8)
 
     class Meta:
@@ -23,92 +30,105 @@ class RegisterSerializer(serializers.ModelSerializer):
         fields = ["id", "username", "email", "password"]
 
     def create(self, validated_data):
-        # create_user hashes the password automatically
         return User.objects.create_user(**validated_data)
 
 
 class UserSerializer(serializers.ModelSerializer):
-    """Read-only user info (returned after login / in responses)."""
     class Meta:
         model = User
         fields = ["id", "username", "email"]
 
 
-# ── Exercise ─────────────────────────────────────────────────────
+# ── Exercise catalog ────────────────────────────────────────────
 
 class ExerciseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Exercise
-        fields = [
-            "id", "training_plan", "name",
-            "default_sets", "default_reps", "default_weight", "order",
-        ]
+        fields = ["id", "name"]
         read_only_fields = ["id"]
 
 
-# ── Training Plan (with nested exercises) ────────────────────────
+# ── Plan exercises (nested inside TrainingPlan) ─────────────────
+
+class PlanExerciseSerializer(serializers.ModelSerializer):
+    """Read/write form used both standalone and nested in a plan."""
+    exercise_name = serializers.CharField(
+        source="exercise.name", read_only=True,
+    )
+
+    class Meta:
+        model = PlanExercise
+        fields = [
+            "id", "training_plan", "exercise", "exercise_name",
+            "sets", "reps", "weight", "order",
+        ]
+        read_only_fields = ["id", "exercise_name"]
+        # training_plan is optional when nested inside a TrainingPlan payload
+        extra_kwargs = {"training_plan": {"required": False}}
+
+
+# ── Training plan (with nested plan_exercises) ──────────────────
 
 class TrainingPlanSerializer(serializers.ModelSerializer):
-    """
-    Returns the plan with all its exercises embedded.
-    The 'user' field is set automatically from the request.
-    """
-    exercises = ExerciseSerializer(many=True, read_only=True)
+    plan_exercises = PlanExerciseSerializer(many=True, read_only=True)
 
     class Meta:
         model = TrainingPlan
         fields = [
             "id", "user", "name", "description",
-            "created_at", "updated_at", "exercises",
+            "created_at", "updated_at", "plan_exercises",
         ]
         read_only_fields = ["id", "user", "created_at", "updated_at"]
 
 
-# ── Exercise Log ─────────────────────────────────────────────────
+# ── Exercise log ────────────────────────────────────────────────
 
 class ExerciseLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExerciseLog
         fields = [
-            "id", "workout_session", "exercise_name",
-            "exercise", "sets", "reps", "weight",
+            "id", "workout_session", "exercise", "exercise_name",
+            "sets", "reps", "weight", "status",
         ]
         read_only_fields = ["id"]
+        # workout_session may be filled in later when nested inside a session.
+        extra_kwargs = {"workout_session": {"required": False}}
 
 
-# ── Workout Session (with nested logs) ───────────────────────────
+# ── Workout session ─────────────────────────────────────────────
 
 class WorkoutSessionSerializer(serializers.ModelSerializer):
-    """
-    Returns the session with all exercise logs embedded.
-    Supports creating a session with logs in one request via
-    the nested 'exercise_logs' field.
-    """
+    """Read form — embeds logs and the plan name for easy list rendering."""
     exercise_logs = ExerciseLogSerializer(many=True, read_only=True)
+    plan_name = serializers.SerializerMethodField()
 
     class Meta:
         model = WorkoutSession
         fields = [
-            "id", "user", "training_plan", "date",
-            "notes", "completed", "created_at", "exercise_logs",
+            "id", "user", "training_plan", "plan_name", "date",
+            "duration_seconds", "notes", "completed",
+            "created_at", "exercise_logs",
         ]
-        read_only_fields = ["id", "user", "created_at"]
+        read_only_fields = ["id", "user", "created_at", "plan_name"]
+
+    def get_plan_name(self, obj):
+        return obj.training_plan.name if obj.training_plan else "Freestyle"
 
 
 class WorkoutSessionCreateSerializer(serializers.ModelSerializer):
     """
-    Accepts a session with nested exercise logs in one POST request.
+    Accepts a whole session + nested logs in one POST.
     Example payload:
-    {
-        "training_plan": 1,
-        "date": "2025-04-19",
-        "notes": "Felt strong today",
-        "completed": true,
-        "exercise_logs": [
-            {"exercise_name": "Bench Press", "exercise": 1, "sets": 3, "reps": 10, "weight": 80.0},
-            {"exercise_name": "Rows", "exercise": 2, "sets": 3, "reps": 12, "weight": 60.0}
-        ]
-    }
+        {
+          "training_plan": 1,
+          "date": "2026-04-22",
+          "duration_seconds": 1830,
+          "completed": true,
+          "exercise_logs": [
+            {"exercise": 3, "exercise_name": "Bench Press",
+             "sets": 3, "reps": 10, "weight": "62.5", "status": "done"}
+          ]
+        }
     """
     exercise_logs = ExerciseLogSerializer(many=True)
 
@@ -116,12 +136,15 @@ class WorkoutSessionCreateSerializer(serializers.ModelSerializer):
         model = WorkoutSession
         fields = [
             "id", "training_plan", "date",
-            "notes", "completed", "exercise_logs",
+            "duration_seconds", "notes", "completed",
+            "exercise_logs",
         ]
 
     def create(self, validated_data):
-        logs_data = validated_data.pop("exercise_logs")
+        logs = validated_data.pop("exercise_logs")
         session = WorkoutSession.objects.create(**validated_data)
-        for log_data in logs_data:
-            ExerciseLog.objects.create(workout_session=session, **log_data)
+        for log in logs:
+            # drop any stale workout_session key the client might send
+            log.pop("workout_session", None)
+            ExerciseLog.objects.create(workout_session=session, **log)
         return session

@@ -7,10 +7,14 @@ import android.widget.Button
 import android.widget.Chronometer
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.lifecycleScope
 import com.fittrack.app.R
-import com.fittrack.app.data.dummy.DummyData
+import com.fittrack.app.data.api.RetrofitClient
+import com.fittrack.app.data.model.DashboardData
+import com.fittrack.app.data.repository.FitTrackRepository
 import com.fittrack.app.ui.auth.LoginActivity
 import com.fittrack.app.ui.exercises.ExercisesActivity
 import com.fittrack.app.ui.plans.PlanPicker
@@ -21,13 +25,15 @@ import com.fittrack.app.ui.session.SessionListActivity
 import com.fittrack.app.util.SessionTimerStore
 import com.fittrack.app.util.UserStore
 import com.google.android.material.button.MaterialButton
+import kotlinx.coroutines.launch
 
 /**
  * Dashboard — home screen after login.
  *
- * From top to bottom:
- *   Greeting, optional active-session chronometer, 3-stat row, "Start New Workout",
- *   Last Workout card, 2×2 navigation grid, red logout button.
+ * Layout: greeting, optional active-session chronometer, 3-stat row,
+ * "Start New Workout", last-workout card, 2×2 navigation grid, red logout.
+ *
+ * All three stats and the last-workout card come from GET /dashboard/.
  */
 class DashboardActivity : AppCompatActivity() {
 
@@ -36,6 +42,10 @@ class DashboardActivity : AppCompatActivity() {
     private lateinit var sessionTimerBar: LinearLayout
     private lateinit var tvTimerPlan: TextView
     private lateinit var chronometer: Chronometer
+
+    private lateinit var tvStatTotal: TextView
+    private lateinit var tvStatWeek: TextView
+    private lateinit var tvStatStreak: TextView
 
     private lateinit var cardLastWorkout: LinearLayout
     private lateinit var tvLastPlan: TextView
@@ -51,6 +61,10 @@ class DashboardActivity : AppCompatActivity() {
         sessionTimerBar = findViewById(R.id.sessionTimerBar)
         tvTimerPlan = findViewById(R.id.tvTimerPlan)
         chronometer = findViewById(R.id.chronometer)
+
+        tvStatTotal = findViewById(R.id.tvStatTotal)
+        tvStatWeek = findViewById(R.id.tvStatWeek)
+        tvStatStreak = findViewById(R.id.tvStatStreak)
 
         cardLastWorkout = findViewById(R.id.cardLastWorkout)
         tvLastPlan = findViewById(R.id.tvLastPlan)
@@ -78,7 +92,7 @@ class DashboardActivity : AppCompatActivity() {
         super.onResume()
         tvGreeting.text = "Hey ${UserStore.username(this)}!"
         refreshSessionTimer()
-        refreshLastWorkout()
+        refreshDashboard()
     }
 
     override fun onPause() {
@@ -100,16 +114,31 @@ class DashboardActivity : AppCompatActivity() {
         chronometer.start()
     }
 
-    /** Fill in the Last Workout card from dummy history; hide when there is none. */
-    private fun refreshLastWorkout() {
-        val last = DummyData.sessions.firstOrNull()
+    private fun refreshDashboard() {
+        lifecycleScope.launch {
+            FitTrackRepository.getDashboard()
+                .onSuccess { applyDashboard(it) }
+                .onFailure {
+                    Toast.makeText(this@DashboardActivity,
+                        "Couldn't load dashboard: ${it.message}",
+                        Toast.LENGTH_LONG).show()
+                }
+        }
+    }
+
+    private fun applyDashboard(data: DashboardData) {
+        tvStatTotal.text = data.totalWorkouts.toString()
+        tvStatWeek.text = data.sessionsThisWeek.toString()
+        tvStatStreak.text = if (data.currentStreak == 1) "1 day" else "${data.currentStreak} days"
+
+        val last = data.lastWorkout
         if (last == null) {
             cardLastWorkout.visibility = View.GONE
             return
         }
         cardLastWorkout.visibility = View.VISIBLE
         tvLastPlan.text = last.planName
-        tvLastMeta.text = "${last.date}  •  ${last.completed}/${last.total} exercises completed"
+        tvLastMeta.text = "${last.date}  •  ${last.done}/${last.total} exercises completed"
         cardLastWorkout.setOnClickListener {
             startActivity(
                 Intent(this, SessionDetailActivity::class.java)
@@ -121,6 +150,7 @@ class DashboardActivity : AppCompatActivity() {
     private fun logout() {
         SessionTimerStore.clear(this)
         UserStore.clear(this)
+        RetrofitClient.clearToken()
         startActivity(Intent(this, LoginActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
         })

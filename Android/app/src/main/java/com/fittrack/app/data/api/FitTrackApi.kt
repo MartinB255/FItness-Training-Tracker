@@ -5,60 +5,70 @@ import retrofit2.Response
 import retrofit2.http.*
 
 /**
- * Retrofit interface defining all backend API calls.
- * Base URL is set in RetrofitClient.
+ * Retrofit interface describing every backend endpoint.
+ * Base URL is set in [RetrofitClient]; auth token is attached via interceptor.
  */
 interface FitTrackApi {
 
-    // ── Auth ────────────────────────────────────────────────────
+    // ── Auth ─────────────────────────────────────────────────────
 
     @POST("auth/register/")
-    suspend fun register(@Body request: RegisterRequest): Response<AuthResponse>
+    suspend fun register(@Body body: RegisterRequest): Response<AuthResponse>
 
     @POST("auth/login/")
-    suspend fun login(@Body request: LoginRequest): Response<AuthResponse>
+    suspend fun login(@Body body: LoginRequest): Response<AuthResponse>
 
     @GET("auth/me/")
     suspend fun getMe(): Response<User>
 
-    // ── Training Plans ──────────────────────────────────────────
+    // ── Exercise catalog ─────────────────────────────────────────
+
+    @GET("exercises/")
+    suspend fun getExercises(): Response<List<Exercise>>
+
+    @POST("exercises/")
+    suspend fun createExercise(@Body body: CreateExerciseRequest): Response<Exercise>
+
+    @DELETE("exercises/{id}/")
+    suspend fun deleteExercise(@Path("id") id: Int): Response<Unit>
+
+    // ── Training plans ───────────────────────────────────────────
 
     @GET("plans/")
     suspend fun getPlans(): Response<List<TrainingPlan>>
 
     @POST("plans/")
-    suspend fun createPlan(@Body plan: CreatePlanRequest): Response<TrainingPlan>
+    suspend fun createPlan(@Body body: CreatePlanRequest): Response<TrainingPlan>
 
     @GET("plans/{id}/")
     suspend fun getPlan(@Path("id") id: Int): Response<TrainingPlan>
 
     @PUT("plans/{id}/")
-    suspend fun updatePlan(@Path("id") id: Int, @Body plan: CreatePlanRequest): Response<TrainingPlan>
+    suspend fun updatePlan(
+        @Path("id") id: Int,
+        @Body body: CreatePlanRequest,
+    ): Response<TrainingPlan>
 
     @DELETE("plans/{id}/")
     suspend fun deletePlan(@Path("id") id: Int): Response<Unit>
 
-    // ── Exercises ───────────────────────────────────────────────
+    // ── Plan-exercise links ──────────────────────────────────────
 
-    @GET("exercises/")
-    suspend fun getExercises(@Query("plan") planId: Int): Response<List<Exercise>>
+    @POST("plan-exercises/")
+    suspend fun addPlanExercise(
+        @Body body: CreatePlanExerciseRequest,
+    ): Response<PlanExercise>
 
-    @POST("exercises/")
-    suspend fun createExercise(@Body exercise: CreateExerciseRequest): Response<Exercise>
+    @DELETE("plan-exercises/{id}/")
+    suspend fun removePlanExercise(@Path("id") id: Int): Response<Unit>
 
-    @PUT("exercises/{id}/")
-    suspend fun updateExercise(@Path("id") id: Int, @Body exercise: CreateExerciseRequest): Response<Exercise>
-
-    @DELETE("exercises/{id}/")
-    suspend fun deleteExercise(@Path("id") id: Int): Response<Unit>
-
-    // ── Workout Sessions ────────────────────────────────────────
+    // ── Workout sessions ─────────────────────────────────────────
 
     @GET("sessions/")
     suspend fun getSessions(): Response<List<WorkoutSession>>
 
     @POST("sessions/")
-    suspend fun createSession(@Body session: CreateSessionRequest): Response<WorkoutSession>
+    suspend fun createSession(@Body body: CreateSessionRequest): Response<WorkoutSession>
 
     @GET("sessions/{id}/")
     suspend fun getSession(@Path("id") id: Int): Response<WorkoutSession>
@@ -66,28 +76,26 @@ interface FitTrackApi {
     @DELETE("sessions/{id}/")
     suspend fun deleteSession(@Path("id") id: Int): Response<Unit>
 
-    // ── Exercise Logs ───────────────────────────────────────────
+    // ── Exercise logs (usually created via nested POST /sessions/) ─
 
-    @GET("logs/")
+    @GET("exercise-logs/")
     suspend fun getLogs(@Query("session") sessionId: Int): Response<List<ExerciseLog>>
 
-    @POST("logs/")
-    suspend fun createLog(@Body log: CreateLogRequest): Response<ExerciseLog>
+    @POST("exercise-logs/")
+    suspend fun createLog(@Body body: CreateLogRequest): Response<ExerciseLog>
 
-    @PUT("logs/{id}/")
-    suspend fun updateLog(@Path("id") id: Int, @Body log: CreateLogRequest): Response<ExerciseLog>
-
-    @DELETE("logs/{id}/")
+    @DELETE("exercise-logs/{id}/")
     suspend fun deleteLog(@Path("id") id: Int): Response<Unit>
 
-    // ── Progress / Charts ───────────────────────────────────────
+    // ── Progress / charts ────────────────────────────────────────
 
-    @GET("progress/exercise/{id}/")
-    suspend fun getExerciseProgress(@Path("id") exerciseId: Int): Response<List<ProgressEntry>>
+    /** Returns { exerciseName -> [points] } so the line chart can draw one line per exercise. */
+    @GET("progress/")
+    suspend fun getProgress(): Response<Map<String, List<ProgressPoint>>>
 
-    @GET("progress/weekly/")
+    @GET("weekly-volume/")
     suspend fun getWeeklyVolume(): Response<List<WeeklyVolume>>
 
-    @GET("progress/dashboard/")
+    @GET("dashboard/")
     suspend fun getDashboard(): Response<DashboardData>
 }

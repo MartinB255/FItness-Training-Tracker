@@ -5,47 +5,79 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.fittrack.app.R
-import com.fittrack.app.data.dummy.DummyData
-import com.fittrack.app.data.dummy.DummyData.SessionLog
+import com.fittrack.app.data.model.ExerciseLog
+import com.fittrack.app.data.repository.FitTrackRepository
+import com.fittrack.app.util.ExerciseStatus
 import com.fittrack.app.util.StatusUi
 import com.google.android.material.appbar.MaterialToolbar
+import kotlinx.coroutines.launch
 
-/** Detail view for one historical session — lists every exercise log with its status dot. */
+/** Detail view for one historical session — lists every exercise log with its status. */
 class SessionDetailActivity : AppCompatActivity() {
 
     companion object { const val EXTRA_SESSION_ID = "session_id" }
+
+    private lateinit var toolbar: MaterialToolbar
+    private lateinit var tvHeader: TextView
+    private lateinit var rvLogs: RecyclerView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, true)
         setContentView(R.layout.activity_session_detail)
 
-        val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
+        toolbar = findViewById(R.id.toolbar)
         toolbar.setNavigationOnClickListener { finish() }
+        tvHeader = findViewById(R.id.tvHeader)
+        rvLogs = findViewById(R.id.rvLogs)
+        rvLogs.layoutManager = LinearLayoutManager(this)
 
         val id = intent.getIntExtra(EXTRA_SESSION_ID, -1)
-        val session = DummyData.sessionById(id)
-        if (session == null) {
-            finish()
-            return
-        }
+        if (id < 0) { finish(); return }
 
-        toolbar.title = session.planName
-        findViewById<TextView>(R.id.tvHeader).text =
-            "${session.date}  •  ${session.completed}/${session.total} completed"
+        loadSession(id)
+    }
 
-        findViewById<RecyclerView>(R.id.rvLogs).apply {
-            layoutManager = LinearLayoutManager(this@SessionDetailActivity)
-            adapter = LogsAdapter(session.logs)
+    private fun loadSession(id: Int) {
+        lifecycleScope.launch {
+            FitTrackRepository.getSession(id)
+                .onSuccess { s ->
+                    toolbar.title = s.planName
+                    val done = s.exerciseLogs.count { it.status == "done" }
+                    tvHeader.text =
+                        "${s.date}  •  $done/${s.exerciseLogs.size} completed  •  " +
+                        formatDuration(s.durationSeconds)
+                    rvLogs.adapter = LogsAdapter(s.exerciseLogs)
+                }
+                .onFailure {
+                    Toast.makeText(this@SessionDetailActivity,
+                        "Couldn't load session: ${it.message}",
+                        Toast.LENGTH_LONG).show()
+                    finish()
+                }
         }
     }
 
-    private class LogsAdapter(private val logs: List<SessionLog>) :
+    /** "1h 23m 04s" / "23m 04s" / "45s" */
+    private fun formatDuration(totalSeconds: Int): String {
+        val h = totalSeconds / 3600
+        val m = (totalSeconds % 3600) / 60
+        val s = totalSeconds % 60
+        return when {
+            h > 0 -> "%dh %02dm %02ds".format(h, m, s)
+            m > 0 -> "%dm %02ds".format(m, s)
+            else -> "%ds".format(s)
+        }
+    }
+
+    private class LogsAdapter(private val logs: List<ExerciseLog>) :
         RecyclerView.Adapter<LogsAdapter.VH>() {
 
         class VH(view: View) : RecyclerView.ViewHolder(view) {
@@ -66,10 +98,12 @@ class SessionDetailActivity : AppCompatActivity() {
             val log = logs[position]
             holder.name.text = log.exerciseName
             holder.meta.text = "${log.sets} × ${log.reps} @ ${formatWeight(log.weight)}"
-            StatusUi.apply(holder.status, log.status)
+            StatusUi.apply(holder.status, ExerciseStatus.fromApi(log.status))
         }
 
-        private fun formatWeight(w: Double): String =
-            if (w == w.toLong().toDouble()) "${w.toLong()} kg" else "$w kg"
+        private fun formatWeight(weight: String): String {
+            val d = weight.toDoubleOrNull() ?: return "$weight kg"
+            return if (d == d.toLong().toDouble()) "${d.toLong()} kg" else "$d kg"
+        }
     }
 }

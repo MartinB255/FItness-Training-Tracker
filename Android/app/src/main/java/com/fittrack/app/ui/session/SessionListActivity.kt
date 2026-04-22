@@ -7,20 +7,25 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.fittrack.app.R
-import com.fittrack.app.data.dummy.DummyData
+import com.fittrack.app.data.model.WorkoutSession
+import com.fittrack.app.data.repository.FitTrackRepository
 import com.fittrack.app.ui.plans.PlanPicker
 import com.google.android.material.appbar.MaterialToolbar
+import kotlinx.coroutines.launch
 
 /** List of past workout sessions; tap one to open SessionDetailActivity. */
 class SessionListActivity : AppCompatActivity() {
 
     private lateinit var rvSessions: RecyclerView
     private lateinit var tvEmpty: TextView
+    private val sessions = mutableListOf<WorkoutSession>()
     private val adapter = SessionsAdapter()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,8 +48,24 @@ class SessionListActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        adapter.notifyDataSetChanged()
-        tvEmpty.visibility = if (DummyData.sessions.isEmpty()) View.VISIBLE else View.GONE
+        loadSessions()
+    }
+
+    private fun loadSessions() {
+        lifecycleScope.launch {
+            FitTrackRepository.getSessions()
+                .onSuccess { list ->
+                    sessions.clear()
+                    sessions.addAll(list)
+                    adapter.notifyDataSetChanged()
+                    tvEmpty.visibility = if (sessions.isEmpty()) View.VISIBLE else View.GONE
+                }
+                .onFailure {
+                    Toast.makeText(this@SessionListActivity,
+                        "Couldn't load sessions: ${it.message}",
+                        Toast.LENGTH_LONG).show()
+                }
+        }
     }
 
     private inner class SessionsAdapter : RecyclerView.Adapter<SessionsAdapter.VH>() {
@@ -60,13 +81,15 @@ class SessionListActivity : AppCompatActivity() {
             return VH(v)
         }
 
-        override fun getItemCount() = DummyData.sessions.size
+        override fun getItemCount() = sessions.size
 
         override fun onBindViewHolder(holder: VH, position: Int) {
-            val s = DummyData.sessions[position]
+            val s = sessions[position]
             holder.date.text = s.date
             holder.plan.text = s.planName
-            holder.summary.text = "${s.completed}/${s.total} exercises completed"
+            val done = s.exerciseLogs.count { it.status == "done" }
+            val total = s.exerciseLogs.size
+            holder.summary.text = "$done/$total exercises completed"
             holder.itemView.setOnClickListener {
                 startActivity(
                     Intent(this@SessionListActivity, SessionDetailActivity::class.java)
