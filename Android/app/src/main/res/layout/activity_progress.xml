@@ -1,10 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Progress visualization screen with charts -->
+<!-- Progress Charts -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
+    android:paddingLeft="16dp"
+    android:paddingRight="16dp"
+    android:paddingTop="12dp"
+    android:paddingBottom="16dp"
     android:fitsSystemWindows="true">
 
     <com.google.android.material.appbar.MaterialToolbar
@@ -22,76 +26,38 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="16dp">
+            android:orientation="vertical">
 
-            <ProgressBar
-                android:id="@+id/progressBar"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:visibility="gone" />
-
-            <!-- Exercise weight progression -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Exercise Progress"
+                android:text="Weight per Exercise"
                 android:textSize="18sp"
                 android:textStyle="bold"
+                android:layout_marginTop="12dp"
                 android:layout_marginBottom="12dp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Training plan"
-                android:textSize="12sp"
-                android:textAllCaps="true"
-                android:textColor="@color/onSurfaceMuted"
-                android:layout_marginBottom="2dp" />
-
-            <Spinner
-                android:id="@+id/spinnerPlan"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Exercise"
-                android:textSize="12sp"
-                android:textAllCaps="true"
-                android:textColor="@color/onSurfaceMuted"
-                android:layout_marginBottom="2dp" />
-
-            <Spinner
-                android:id="@+id/spinnerExercise"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp" />
 
             <com.github.mikephil.charting.charts.LineChart
                 android:id="@+id/lineChart"
                 android:layout_width="match_parent"
-                android:layout_height="250dp"
+                android:layout_height="280dp"
                 android:layout_marginBottom="24dp" />
 
-            <!-- Weekly volume -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Weekly Volume"
                 android:textSize="18sp"
                 android:textStyle="bold"
-                android:layout_marginBottom="8dp" />
+                android:layout_marginBottom="12dp" />
 
             <com.github.mikephil.charting.charts.BarChart
                 android:id="@+id/barChart"
                 android:layout_width="match_parent"
-                android:layout_height="250dp"
-                android:layout_marginBottom="16dp" />
+                android:layout_height="280dp"
+                android:layout_marginBottom="12dp" />
 
         </LinearLayout>
     </ScrollView>
+
 </LinearLayout>

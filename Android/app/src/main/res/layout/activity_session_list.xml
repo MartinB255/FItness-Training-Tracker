@@ -1,10 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Workout Sessions list -->
+<!-- Workout Session History -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
+    android:paddingLeft="16dp"
+    android:paddingRight="16dp"
+    android:paddingTop="12dp"
+    android:paddingBottom="16dp"
     android:fitsSystemWindows="true">
 
     <com.google.android.material.appbar.MaterialToolbar
@@ -15,42 +19,29 @@
         app:title="Workout Sessions"
         app:titleTextColor="@color/white" />
 
-    <LinearLayout
+    <!-- Top action: start a new session right from this screen. -->
+    <Button
+        android:id="@+id/btnNewSession"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:padding="16dp">
+        android:layout_height="wrap_content"
+        android:text="+ New Session"
+        android:layout_marginTop="12dp" />
 
     <TextView
         android:id="@+id/tvEmpty"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="No workouts yet. Start one!"
+        android:text="No workouts yet."
         android:textAlignment="center"
         android:textSize="16sp"
         android:visibility="gone"
         android:layout_marginTop="32dp" />
 
-    <ProgressBar
-        android:id="@+id/progressBar"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:visibility="gone" />
-
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvSessions"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1" />
-
-    <Button
-        android:id="@+id/btnNewSession"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="+ New Workout"
-        android:layout_marginTop="8dp" />
-
-    </LinearLayout>
+        android:layout_weight="1"
+        android:layout_marginTop="12dp" />
 
 </LinearLayout>

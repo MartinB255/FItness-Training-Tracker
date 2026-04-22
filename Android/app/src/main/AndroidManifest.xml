@@ -30,6 +30,7 @@
         <activity android:name=".ui.plans.PlansActivity" />
         <activity android:name=".ui.exercises.ExercisesActivity" />
         <activity android:name=".ui.session.SessionListActivity" />
+        <activity android:name=".ui.session.SessionDetailActivity" />
         <activity android:name=".ui.session.NewSessionActivity" />
         <activity android:name=".ui.progress.ProgressActivity" />
 

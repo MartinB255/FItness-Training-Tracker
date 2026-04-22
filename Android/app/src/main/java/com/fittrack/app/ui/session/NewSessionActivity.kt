@@ -1,51 +1,64 @@
 package com.fittrack.app.ui.session
 
+import android.content.Intent
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
+import android.util.Log
+import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.*
+import android.widget.Button
+import android.widget.Chronometer
+import android.widget.EditText
+import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
-import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.fittrack.app.R
-import com.fittrack.app.data.model.*
-import com.fittrack.app.data.repository.FitTrackRepository
+import com.fittrack.app.data.dummy.DummyData
+import com.fittrack.app.data.dummy.DummyData.ExerciseStatus
+import com.fittrack.app.data.dummy.DummyData.SessionLog
+import com.fittrack.app.ui.dashboard.DashboardActivity
+import com.fittrack.app.util.SessionTimerStore
+import com.fittrack.app.util.StatusUi
 import com.google.android.material.appbar.MaterialToolbar
-import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 /**
- * Screen for logging a new workout session.
+ * Active workout screen. Chronometer ticks while you train; each exercise has
+ * editable sets/reps/weight and a tap-to-cycle status dot. Save is only enabled
+ * once every exercise has a concrete status (no TODO).
  *
- * Flow:
- * 1. User picks a training plan (or freestyle)
- * 2. Exercises from the plan are pre-loaded
- * 3. User adjusts sets/reps/weight for each exercise
- * 4. User hits "Save Workout" to send everything to the API
+ * Chronometer base is persisted to SharedPreferences so the Dashboard can show
+ * the same timer if the user navigates away mid-session.
  */
 class NewSessionActivity : AppCompatActivity() {
 
-    private lateinit var spinnerPlan: Spinner
-    private lateinit var rvLogs: RecyclerView
-    private lateinit var btnAddLog: Button
-    private lateinit var btnSave: Button
-    private lateinit var progressBar: ProgressBar
+    companion object {
+        const val EXTRA_PLAN_ID = "plan_id"
+        private const val TAG = "NewSessionActivity"
+    }
 
-    private var plans = listOf<TrainingPlan>()
-    private var selectedPlanId: Int? = null
-    private var logs = mutableListOf<LogEntry>()
-
-    /** Temporary holder for an exercise log before saving. */
-    data class LogEntry(
-        var exerciseName: String,
-        var exerciseId: Int? = null,
-        var sets: Int = 3,
-        var reps: Int = 10,
-        var weight: String = "0"
+    /** Mutable per-row state for the active session. */
+    private data class Row(
+        val exerciseName: String,
+        var sets: Int,
+        var reps: Int,
+        var weight: Double,
+        var status: ExerciseStatus = ExerciseStatus.TODO,
     )
+
+    private lateinit var chronometer: Chronometer
+    private lateinit var tvPlanName: TextView
+    private lateinit var rv: RecyclerView
+    private lateinit var btnSave: Button
+
+    private val rows = mutableListOf<Row>()
+    private lateinit var planName: String
+    private val adapter = WorkoutAdapter()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,152 +68,154 @@ class NewSessionActivity : AppCompatActivity() {
         findViewById<MaterialToolbar>(R.id.toolbar)
             .setNavigationOnClickListener { finish() }
 
-        spinnerPlan = findViewById(R.id.spinnerPlan)
-        rvLogs = findViewById(R.id.rvLogs)
-        btnAddLog = findViewById(R.id.btnAddLog)
+        chronometer = findViewById(R.id.chronometer)
+        tvPlanName = findViewById(R.id.tvPlanName)
+        rv = findViewById(R.id.rvWorkout)
         btnSave = findViewById(R.id.btnSave)
-        progressBar = findViewById(R.id.progressBar)
 
-        rvLogs.layoutManager = LinearLayoutManager(this)
-        rvLogs.adapter = LogsAdapter()
-
-        btnAddLog.setOnClickListener { showAddLogDialog() }
-        btnSave.setOnClickListener { saveSession() }
-
-        loadPlans()
-    }
-
-    private fun loadPlans() {
-        lifecycleScope.launch {
-            val result = FitTrackRepository.getPlans()
-            result.onSuccess { list ->
-                plans = list
-                val names = listOf("-- Freestyle --") + list.map { it.name }
-                spinnerPlan.adapter = ArrayAdapter(
-                    this@NewSessionActivity,
-                    android.R.layout.simple_spinner_dropdown_item,
-                    names
-                )
-                spinnerPlan.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-                    override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
-                        if (pos == 0) {
-                            selectedPlanId = null
-                            logs.clear()
-                        } else {
-                            val plan = plans[pos - 1]
-                            selectedPlanId = plan.id
-                            prefillFromPlan(plan)
-                        }
-                        rvLogs.adapter?.notifyDataSetChanged()
-                    }
-                    override fun onNothingSelected(parent: AdapterView<*>?) {}
-                }
-            }
+        val planId = intent.getIntExtra(EXTRA_PLAN_ID, -1)
+        val plan = DummyData.planById(planId)
+        if (plan == null) {
+            AlertDialog.Builder(this)
+                .setTitle("Plan missing")
+                .setMessage("Couldn't load the plan for this workout.")
+                .setPositiveButton("OK") { _, _ -> finish() }
+                .show()
+            return
         }
+        planName = plan.name
+        tvPlanName.text = planName
+
+        // Seed rows from the plan's default sets/reps/weight.
+        rows.clear()
+        rows.addAll(plan.exercises.map {
+            Row(it.exerciseName, it.sets, it.reps, it.weight)
+        })
+
+        rv.layoutManager = LinearLayoutManager(this)
+        rv.adapter = adapter
+
+        startOrResumeTimer()
+        btnSave.setOnClickListener { onSaveClicked() }
+        refreshSaveEnabled()
     }
 
-    /** Pre-fill log entries from the selected plan's exercises. */
-    private fun prefillFromPlan(plan: TrainingPlan) {
-        logs.clear()
-        for (ex in plan.exercises) {
-            logs.add(LogEntry(
-                exerciseName = ex.name,
-                exerciseId = ex.id,
-                sets = ex.defaultSets,
-                reps = ex.defaultReps,
-                weight = ex.defaultWeight
-            ))
+    /** Use the stored base if one exists, otherwise start a fresh session now. */
+    private fun startOrResumeTimer() {
+        val existingBase = SessionTimerStore.baseOrNull(this)
+        val existingPlan = SessionTimerStore.planName(this)
+        if (existingBase != null && existingPlan == planName) {
+            chronometer.base = existingBase
+        } else {
+            SessionTimerStore.start(this, planName)
+            chronometer.base = SessionTimerStore.baseOrNull(this)!!
         }
+        chronometer.start()
     }
 
-    private fun showAddLogDialog() {
-        val view = layoutInflater.inflate(R.layout.dialog_add_exercise, null)
-        val etName = view.findViewById<EditText>(R.id.etExerciseName)
-        val etSets = view.findViewById<EditText>(R.id.etSets)
-        val etReps = view.findViewById<EditText>(R.id.etReps)
-        val etWeight = view.findViewById<EditText>(R.id.etWeight)
+    override fun onPause() {
+        super.onPause()
+        chronometer.stop()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (SessionTimerStore.isActive(this)) chronometer.start()
+    }
+
+    private fun refreshSaveEnabled() {
+        btnSave.isEnabled = rows.none { it.status == ExerciseStatus.TODO }
+    }
+
+    private fun onSaveClicked() {
+        val done = rows.count { it.status == ExerciseStatus.DONE }
+        val skipped = rows.count { it.status == ExerciseStatus.SKIPPED }
+        val refused = rows.count { it.status == ExerciseStatus.REFUSED }
+
+        // Build logs + add to dummy history so the Sessions screen reflects it.
+        val logs = rows.map {
+            SessionLog(it.exerciseName, it.sets, it.reps, it.weight, it.status)
+        }
+        DummyData.addSession(LocalDate.now().toString(), planName, logs)
+
+        Log.d(TAG, "Saved session: plan=$planName, logs=$logs")
+
+        SessionTimerStore.clear(this)
+        chronometer.stop()
 
         AlertDialog.Builder(this)
-            .setTitle("Add Exercise Log")
-            .setView(view)
-            .setPositiveButton("Add") { _, _ ->
-                val name = etName.text.toString().trim()
-                if (name.isNotEmpty()) {
-                    logs.add(LogEntry(
-                        exerciseName = name,
-                        sets = etSets.text.toString().toIntOrNull() ?: 3,
-                        reps = etReps.text.toString().toIntOrNull() ?: 10,
-                        weight = etWeight.text.toString().ifEmpty { "0" }
-                    ))
-                    rvLogs.adapter?.notifyDataSetChanged()
-                }
+            .setTitle("Great workout!")
+            .setMessage("$done/${rows.size} exercises done, $skipped skipped, $refused not done.")
+            .setCancelable(false)
+            .setPositiveButton("OK") { _, _ ->
+                startActivity(Intent(this, DashboardActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_CLEAR_TOP
+                })
+                finish()
             }
-            .setNegativeButton("Cancel", null)
             .show()
     }
 
-    private fun saveSession() {
-        if (logs.isEmpty()) {
-            Toast.makeText(this, "Add at least one exercise", Toast.LENGTH_SHORT).show()
-            return
+    // ── RecyclerView adapter ─────────────────────────────────────────
+
+    private inner class WorkoutAdapter : RecyclerView.Adapter<WorkoutAdapter.VH>() {
+        inner class VH(view: View) : RecyclerView.ViewHolder(view) {
+            val name: TextView = view.findViewById(R.id.tvName)
+            val status: TextView = view.findViewById(R.id.tvStatus)
+            val sets: EditText = view.findViewById(R.id.etSets)
+            val reps: EditText = view.findViewById(R.id.etReps)
+            val weight: EditText = view.findViewById(R.id.etWeight)
+
+            // Keep references so we can detach watchers on rebind.
+            var setsWatcher: TextWatcher? = null
+            var repsWatcher: TextWatcher? = null
+            var weightWatcher: TextWatcher? = null
         }
 
-        val request = CreateSessionRequest(
-            trainingPlan = selectedPlanId,
-            date = LocalDate.now().toString(),
-            notes = "",
-            completed = true,
-            exerciseLogs = logs.map { log ->
-                CreateLogRequest(
-                    exerciseName = log.exerciseName,
-                    exercise = log.exerciseId,
-                    sets = log.sets,
-                    reps = log.reps,
-                    weight = log.weight
-                )
-            }
-        )
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
+            val v = LayoutInflater.from(parent.context)
+                .inflate(R.layout.item_workout, parent, false)
+            return VH(v)
+        }
 
-        progressBar.visibility = View.VISIBLE
-        btnSave.isEnabled = false
-        lifecycleScope.launch {
-            val result = FitTrackRepository.createSession(request)
-            progressBar.visibility = View.GONE
-            result.onSuccess {
-                Toast.makeText(this@NewSessionActivity, "Workout saved!", Toast.LENGTH_SHORT).show()
-                finish()
-            }.onFailure { e ->
-                btnSave.isEnabled = true
-                Toast.makeText(this@NewSessionActivity, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+        override fun getItemCount() = rows.size
+
+        override fun onBindViewHolder(holder: VH, position: Int) {
+            val row = rows[position]
+            holder.name.text = row.exerciseName
+
+            // Detach previous watchers before setting text (avoid stray callbacks).
+            holder.setsWatcher?.let { holder.sets.removeTextChangedListener(it) }
+            holder.repsWatcher?.let { holder.reps.removeTextChangedListener(it) }
+            holder.weightWatcher?.let { holder.weight.removeTextChangedListener(it) }
+
+            holder.sets.setText(row.sets.toString())
+            holder.reps.setText(row.reps.toString())
+            holder.weight.setText(formatWeight(row.weight))
+
+            holder.setsWatcher = simpleWatcher { row.sets = it.toIntOrNull() ?: row.sets }
+            holder.repsWatcher = simpleWatcher { row.reps = it.toIntOrNull() ?: row.reps }
+            holder.weightWatcher = simpleWatcher { row.weight = it.toDoubleOrNull() ?: row.weight }
+            holder.sets.addTextChangedListener(holder.setsWatcher)
+            holder.reps.addTextChangedListener(holder.repsWatcher)
+            holder.weight.addTextChangedListener(holder.weightWatcher)
+
+            StatusUi.apply(holder.status, row.status)
+            holder.status.setOnClickListener {
+                row.status = StatusUi.next(row.status)
+                StatusUi.apply(holder.status, row.status)
+                refreshSaveEnabled()
             }
         }
+
+        private fun simpleWatcher(onChanged: (String) -> Unit): TextWatcher =
+            object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, st: Int, c: Int, a: Int) = Unit
+                override fun onTextChanged(s: CharSequence?, st: Int, b: Int, c: Int) = Unit
+                override fun afterTextChanged(s: Editable?) { onChanged(s?.toString().orEmpty()) }
+            }
     }
 
-    // ── Adapter for the exercise log list ───────────────────────
-
-    inner class LogsAdapter : RecyclerView.Adapter<LogsAdapter.ViewHolder>() {
-
-        inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-            val tvName: TextView = view.findViewById(R.id.tvItemTitle)
-            val tvSub: TextView = view.findViewById(R.id.tvItemSubtitle)
-            val btnDelete: ImageButton = view.findViewById(R.id.btnItemDelete)
-        }
-
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-            val view = layoutInflater.inflate(R.layout.item_list_row, parent, false)
-            return ViewHolder(view)
-        }
-
-        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-            val log = logs[position]
-            holder.tvName.text = log.exerciseName
-            holder.tvSub.text = "${log.sets} × ${log.reps} @ ${log.weight} kg"
-            holder.btnDelete.setOnClickListener {
-                logs.removeAt(position)
-                notifyDataSetChanged()
-            }
-        }
-
-        override fun getItemCount() = logs.size
-    }
+    private fun formatWeight(w: Double): String =
+        if (w == w.toLong().toDouble()) w.toLong().toString() else w.toString()
 }

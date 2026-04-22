@@ -2,35 +2,35 @@ package com.fittrack.app.ui.plans
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.*
+import android.widget.Button
+import android.widget.EditText
+import android.widget.ImageButton
+import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
-import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.fittrack.app.R
-import com.fittrack.app.data.model.TrainingPlan
-import com.fittrack.app.data.repository.FitTrackRepository
-import com.fittrack.app.ui.exercises.ExercisesActivity
+import com.fittrack.app.data.dummy.DummyData
+import com.fittrack.app.data.dummy.DummyData.PlanExercise
+import com.fittrack.app.data.dummy.DummyData.TrainingPlan
+import com.fittrack.app.ui.session.NewSessionActivity
 import com.google.android.material.appbar.MaterialToolbar
-import kotlinx.coroutines.launch
 
 /**
- * Displays the user's training plans.
- * Tap a plan to see/edit its exercises.
- * FAB to create a new plan.
+ * Training Plans list. Tapping a plan opens a detail dialog where the
+ * user can add exercises from the Exercise Database, remove exercises,
+ * or start a workout based on the plan.
  */
 class PlansActivity : AppCompatActivity() {
 
     private lateinit var rvPlans: RecyclerView
-    private lateinit var btnAddPlan: Button
-    private lateinit var progressBar: ProgressBar
     private lateinit var tvEmpty: TextView
-
-    private var plans = mutableListOf<TrainingPlan>()
+    private val adapter = PlansAdapter()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,106 +41,174 @@ class PlansActivity : AppCompatActivity() {
             .setNavigationOnClickListener { finish() }
 
         rvPlans = findViewById(R.id.rvPlans)
-        btnAddPlan = findViewById(R.id.btnAddPlan)
-        progressBar = findViewById(R.id.progressBar)
         tvEmpty = findViewById(R.id.tvEmpty)
-
         rvPlans.layoutManager = LinearLayoutManager(this)
-        rvPlans.adapter = PlansAdapter()
+        rvPlans.adapter = adapter
 
-        btnAddPlan.setOnClickListener { showCreateDialog() }
+        findViewById<Button>(R.id.btnAddPlan).setOnClickListener { showCreatePlanDialog() }
     }
 
     override fun onResume() {
         super.onResume()
-        loadPlans()
+        refresh()
     }
 
-    private fun loadPlans() {
-        progressBar.visibility = View.VISIBLE
-        lifecycleScope.launch {
-            val result = FitTrackRepository.getPlans()
-            progressBar.visibility = View.GONE
-            result.onSuccess { list ->
-                plans.clear()
-                plans.addAll(list)
-                rvPlans.adapter?.notifyDataSetChanged()
-                tvEmpty.visibility = if (plans.isEmpty()) View.VISIBLE else View.GONE
-            }.onFailure { e ->
-                Toast.makeText(this@PlansActivity, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
-            }
-        }
+    private fun refresh() {
+        adapter.notifyDataSetChanged()
+        tvEmpty.visibility = if (DummyData.plans.isEmpty()) View.VISIBLE else View.GONE
     }
 
-    private fun showCreateDialog() {
+    // ── Create-plan dialog ────────────────────────────────────────────
+
+    private fun showCreatePlanDialog() {
         val input = EditText(this).apply {
             hint = "Plan name"
-            setPadding(48, 32, 48, 32)
+            setPadding(48, 24, 48, 24)
         }
         AlertDialog.Builder(this)
-            .setTitle("New Training Plan")
+            .setTitle("New Plan")
             .setView(input)
             .setPositiveButton("Create") { _, _ ->
                 val name = input.text.toString().trim()
-                if (name.isNotEmpty()) createPlan(name)
+                if (name.isNotEmpty()) {
+                    DummyData.addPlan(name)
+                    refresh()
+                }
             }
             .setNegativeButton("Cancel", null)
             .show()
     }
 
-    private fun createPlan(name: String) {
-        lifecycleScope.launch {
-            val result = FitTrackRepository.createPlan(name)
-            result.onSuccess { loadPlans() }
-                .onFailure { e ->
-                    Toast.makeText(this@PlansActivity, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
-                }
+    // ── Plan detail dialog ────────────────────────────────────────────
+
+    private fun showPlanDetailDialog(plan: TrainingPlan) {
+        val view = LayoutInflater.from(this).inflate(R.layout.dialog_plan_detail, null)
+        val rv = view.findViewById<RecyclerView>(R.id.rvPlanExercises)
+        val tvEmpty = view.findViewById<TextView>(R.id.tvEmpty)
+        val btnAdd = view.findViewById<Button>(R.id.btnAddExerciseToPlan)
+        val btnStart = view.findViewById<Button>(R.id.btnStartWorkout)
+
+        val planAdapter = PlanExercisesAdapter(plan.exercises) {
+            tvEmpty.visibility = if (plan.exercises.isEmpty()) View.VISIBLE else View.GONE
         }
+        rv.layoutManager = LinearLayoutManager(this)
+        rv.adapter = planAdapter
+        tvEmpty.visibility = if (plan.exercises.isEmpty()) View.VISIBLE else View.GONE
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(plan.name)
+            .setView(view)
+            .setNegativeButton("Close", null)
+            .create()
+
+        btnAdd.setOnClickListener {
+            showExercisePickerDialog(plan) {
+                planAdapter.notifyDataSetChanged()
+                tvEmpty.visibility = if (plan.exercises.isEmpty()) View.VISIBLE else View.GONE
+                adapter.notifyDataSetChanged() // update count in outer list
+            }
+        }
+        btnStart.setOnClickListener {
+            if (plan.exercises.isEmpty()) {
+                AlertDialog.Builder(this)
+                    .setTitle("Empty plan")
+                    .setMessage("Add at least one exercise before starting a workout.")
+                    .setPositiveButton("OK", null)
+                    .show()
+                return@setOnClickListener
+            }
+            dialog.dismiss()
+            startActivity(
+                Intent(this, NewSessionActivity::class.java)
+                    .putExtra(NewSessionActivity.EXTRA_PLAN_ID, plan.id)
+            )
+        }
+
+        dialog.show()
     }
 
-    private fun deletePlan(plan: TrainingPlan) {
+    /** Pick an exercise from the database and add it to `plan` with default values. */
+    private fun showExercisePickerDialog(plan: TrainingPlan, onAdded: () -> Unit) {
+        val names = DummyData.exercises.map { it.name }.toTypedArray()
+        if (names.isEmpty()) {
+            AlertDialog.Builder(this)
+                .setTitle("No exercises")
+                .setMessage("Add exercises to the database first.")
+                .setPositiveButton("OK", null)
+                .show()
+            return
+        }
         AlertDialog.Builder(this)
-            .setTitle("Delete Plan")
-            .setMessage("Delete \"${plan.name}\"? This will also delete all exercises in it.")
-            .setPositiveButton("Delete") { _, _ ->
-                lifecycleScope.launch {
-                    FitTrackRepository.deletePlan(plan.id)
-                    loadPlans()
-                }
+            .setTitle("Add exercise")
+            .setItems(names) { _, which ->
+                val ex = DummyData.exercises[which]
+                plan.exercises.add(PlanExercise(ex.id, ex.name, 3, 10, 0.0))
+                onAdded()
             }
             .setNegativeButton("Cancel", null)
             .show()
     }
 
-    // ── RecyclerView Adapter ────────────────────────────────────
+    // ── Adapter: top-level plans list ────────────────────────────────
 
-    inner class PlansAdapter : RecyclerView.Adapter<PlansAdapter.ViewHolder>() {
-
-        inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-            val tvName: TextView = view.findViewById(R.id.tvItemTitle)
-            val tvSub: TextView = view.findViewById(R.id.tvItemSubtitle)
-            val btnDelete: ImageButton = view.findViewById(R.id.btnItemDelete)
+    private inner class PlansAdapter : RecyclerView.Adapter<PlansAdapter.VH>() {
+        inner class VH(view: View) : RecyclerView.ViewHolder(view) {
+            val name: TextView = view.findViewById(R.id.tvPlanName)
+            val meta: TextView = view.findViewById(R.id.tvPlanMeta)
         }
 
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-            val view = layoutInflater.inflate(R.layout.item_list_row, parent, false)
-            return ViewHolder(view)
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
+            val v = LayoutInflater.from(parent.context)
+                .inflate(R.layout.item_plan, parent, false)
+            return VH(v)
         }
 
-        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-            val plan = plans[position]
-            holder.tvName.text = plan.name
-            holder.tvSub.text = "${plan.exercises.size} exercises"
+        override fun getItemCount() = DummyData.plans.size
 
-            holder.itemView.setOnClickListener {
-                val intent = Intent(this@PlansActivity, ExercisesActivity::class.java)
-                intent.putExtra("plan_id", plan.id)
-                intent.putExtra("plan_name", plan.name)
-                startActivity(intent)
-            }
-            holder.btnDelete.setOnClickListener { deletePlan(plan) }
+        override fun onBindViewHolder(holder: VH, position: Int) {
+            val plan = DummyData.plans[position]
+            holder.name.text = plan.name
+            val count = plan.exercises.size
+            holder.meta.text = "$count " + if (count == 1) "exercise" else "exercises"
+            holder.itemView.setOnClickListener { showPlanDetailDialog(plan) }
         }
-
-        override fun getItemCount() = plans.size
     }
+
+    // ── Adapter: exercises inside a plan (detail dialog) ─────────────
+
+    private inner class PlanExercisesAdapter(
+        private val items: MutableList<PlanExercise>,
+        private val onChanged: () -> Unit,
+    ) : RecyclerView.Adapter<PlanExercisesAdapter.VH>() {
+        inner class VH(view: View) : RecyclerView.ViewHolder(view) {
+            val name: TextView = view.findViewById(R.id.tvName)
+            val meta: TextView = view.findViewById(R.id.tvMeta)
+            val remove: ImageButton = view.findViewById(R.id.btnRemove)
+        }
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
+            val v = LayoutInflater.from(parent.context)
+                .inflate(R.layout.item_plan_exercise, parent, false)
+            return VH(v)
+        }
+
+        override fun getItemCount() = items.size
+
+        override fun onBindViewHolder(holder: VH, position: Int) {
+            val e = items[position]
+            holder.name.text = e.exerciseName
+            holder.meta.text = "${e.sets} × ${e.reps} @ ${formatWeight(e.weight)}"
+            holder.remove.setOnClickListener {
+                val idx = holder.bindingAdapterPosition
+                if (idx != RecyclerView.NO_POSITION) {
+                    items.removeAt(idx)
+                    notifyItemRemoved(idx)
+                    onChanged()
+                }
+            }
+        }
+    }
+
+    private fun formatWeight(w: Double): String =
+        if (w == w.toLong().toDouble()) "${w.toLong()} kg" else "$w kg"
 }

@@ -1,146 +1,111 @@
 package com.fittrack.app.ui.auth
 
 import android.content.Intent
-import android.os.Build
 import android.os.Bundle
 import android.text.method.PasswordTransformationMethod
 import android.view.View
-import android.widget.*
+import android.widget.Button
+import android.widget.EditText
+import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
-import androidx.lifecycle.lifecycleScope
 import com.fittrack.app.R
-import com.fittrack.app.data.api.RetrofitClient
-import com.fittrack.app.data.repository.FitTrackRepository
 import com.fittrack.app.ui.dashboard.DashboardActivity
-import kotlinx.coroutines.launch
+import com.fittrack.app.util.UserStore
 
 /**
- * Login / Registration screen.
- * First screen the user sees if not logged in.
- * On success, saves the auth token and navigates to DashboardActivity.
+ * Login / Register screen.
+ * Since the backend isn't wired yet, any non-empty credentials pass.
+ * In Register mode, also asks for email + confirm-password.
  */
 class LoginActivity : AppCompatActivity() {
 
     private lateinit var etUsername: EditText
     private lateinit var etEmail: EditText
     private lateinit var etPassword: EditText
-    private lateinit var btnLogin: Button
-    private lateinit var btnRegister: Button
+    private lateinit var etConfirmPassword: EditText
+    private lateinit var btnAction: Button
     private lateinit var tvToggle: TextView
-    private lateinit var progressBar: ProgressBar
 
-    private var isLoginMode = true
+    private var registerMode = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, true)
-
-        // If already logged in, skip to dashboard
-        if (RetrofitClient.isLoggedIn()) {
-            startDashboard()
-            return
-        }
-
         setContentView(R.layout.activity_login)
 
         etUsername = findViewById(R.id.etUsername)
         etEmail = findViewById(R.id.etEmail)
         etPassword = findViewById(R.id.etPassword)
-        btnLogin = findViewById(R.id.btnLogin)
-        btnRegister = findViewById(R.id.btnRegister)
+        etConfirmPassword = findViewById(R.id.etConfirmPassword)
+        btnAction = findViewById(R.id.btnAction)
         tvToggle = findViewById(R.id.tvToggle)
-        progressBar = findViewById(R.id.progressBar)
 
-        // Mask password chars immediately (no last-char reveal delay)
+        // Instant character masking — no reveal-last-char delay.
         etPassword.transformationMethod = PasswordTransformationMethod.getInstance()
+        etConfirmPassword.transformationMethod = PasswordTransformationMethod.getInstance()
 
-        // Disable stylus handwriting popup on login fields (API 33+)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            etUsername.isAutoHandwritingEnabled = false
-            etEmail.isAutoHandwritingEnabled = false
-            etPassword.isAutoHandwritingEnabled = false
-        }
+        btnAction.setOnClickListener { submit() }
+        tvToggle.setOnClickListener { toggleMode() }
 
-        updateMode()
-
-        btnLogin.setOnClickListener { performLogin() }
-        btnRegister.setOnClickListener { performRegister() }
-
-        tvToggle.setOnClickListener {
-            isLoginMode = !isLoginMode
-            updateMode()
-        }
+        applyMode()
     }
 
-    /** Switch between login and register form. */
-    private fun updateMode() {
-        if (isLoginMode) {
-            etEmail.visibility = View.GONE
-            btnLogin.visibility = View.VISIBLE
-            btnRegister.visibility = View.GONE
-            tvToggle.text = "Don't have an account? Register"
+    private fun toggleMode() {
+        registerMode = !registerMode
+        applyMode()
+    }
+
+    private fun applyMode() {
+        val registerVisibility = if (registerMode) View.VISIBLE else View.GONE
+        etEmail.visibility = registerVisibility
+        etConfirmPassword.visibility = registerVisibility
+        btnAction.text = if (registerMode) "Register" else "Login"
+        tvToggle.text = if (registerMode) {
+            "Already have an account? Login"
         } else {
-            etEmail.visibility = View.VISIBLE
-            btnLogin.visibility = View.GONE
-            btnRegister.visibility = View.VISIBLE
-            tvToggle.text = "Already have an account? Login"
+            "Don't have an account? Register"
         }
     }
 
-    private fun performLogin() {
+    private fun submit() {
         val username = etUsername.text.toString().trim()
-        val password = etPassword.text.toString().trim()
+        val password = etPassword.text.toString()
 
         if (username.isEmpty() || password.isEmpty()) {
-            Toast.makeText(this, "Fill in all fields", Toast.LENGTH_SHORT).show()
+            showError("Please fill in username and password.")
             return
         }
 
-        setLoading(true)
-        lifecycleScope.launch {
-            val result = FitTrackRepository.login(username, password)
-            setLoading(false)
-            result.onSuccess { auth ->
-                RetrofitClient.saveToken(auth.token)
-                startDashboard()
-            }.onFailure { e ->
-                Toast.makeText(this@LoginActivity, "Login failed: ${e.message}", Toast.LENGTH_LONG).show()
+        if (registerMode) {
+            val email = etEmail.text.toString().trim()
+            val confirm = etConfirmPassword.text.toString()
+            if (email.isEmpty()) {
+                showError("Please provide an email address.")
+                return
+            }
+            if (password != confirm) {
+                showError("Passwords do not match.")
+                return
+            }
+            if (password.length < 6) {
+                showError("Password must be at least 6 characters.")
+                return
             }
         }
-    }
 
-    private fun performRegister() {
-        val username = etUsername.text.toString().trim()
-        val email = etEmail.text.toString().trim()
-        val password = etPassword.text.toString().trim()
-
-        if (username.isEmpty() || password.isEmpty()) {
-            Toast.makeText(this, "Fill in all fields", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        setLoading(true)
-        lifecycleScope.launch {
-            val result = FitTrackRepository.register(username, email, password)
-            setLoading(false)
-            result.onSuccess { auth ->
-                RetrofitClient.saveToken(auth.token)
-                startDashboard()
-            }.onFailure { e ->
-                Toast.makeText(this@LoginActivity, "Registration failed: ${e.message}", Toast.LENGTH_LONG).show()
-            }
-        }
-    }
-
-    private fun setLoading(loading: Boolean) {
-        progressBar.visibility = if (loading) View.VISIBLE else View.GONE
-        btnLogin.isEnabled = !loading
-        btnRegister.isEnabled = !loading
-    }
-
-    private fun startDashboard() {
+        // Backend not wired yet — remember the username locally and go to Dashboard.
+        UserStore.saveUsername(this, username)
         startActivity(Intent(this, DashboardActivity::class.java))
         finish()
+    }
+
+    private fun showError(message: String) {
+        AlertDialog.Builder(this)
+            .setTitle("Oops")
+            .setMessage(message)
+            .setPositiveButton("OK", null)
+            .show()
     }
 }

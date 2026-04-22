@@ -1,102 +1,254 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Dashboard — main screen with metrics and navigation -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Dashboard: greeting → stats → start-workout → last-workout → 2×2 grid → logout. -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="16dp"
+    android:paddingLeft="16dp"
+    android:paddingRight="16dp"
+    android:paddingTop="12dp"
+    android:paddingBottom="16dp"
     android:fitsSystemWindows="true">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Dashboard"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="16dp" />
-
-    <!-- Metrics cards -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginBottom="16dp">
+        android:orientation="vertical">
 
+        <!-- Greeting -->
         <TextView
-            android:id="@+id/tvTotalWorkouts"
-            android:layout_width="0dp"
+            android:id="@+id/tvGreeting"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Total Workouts: —"
-            android:textSize="16sp"
-            android:padding="12dp"
-            android:background="@color/surfaceGray" />
+            android:text="Hey Athlete!"
+            android:textSize="28sp"
+            android:textStyle="bold" />
 
-        <View
-            android:layout_width="8dp"
-            android:layout_height="match_parent" />
-
-        <TextView
-            android:id="@+id/tvStreak"
-            android:layout_width="0dp"
+        <!-- Optional active-session chronometer bar -->
+        <LinearLayout
+            android:id="@+id/sessionTimerBar"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Streak: —"
-            android:textSize="16sp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_list_row"
             android:padding="12dp"
-            android:background="@color/surfaceGray" />
+            android:layout_marginTop="12dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/tvTimerPlan"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Active session"
+                android:textSize="14sp"
+                android:textColor="@color/onSurfaceMuted" />
+
+            <Chronometer
+                android:id="@+id/chronometer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:textColor="?attr/colorPrimary" />
+        </LinearLayout>
+
+        <!-- Stats row: 3 cards -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="12dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:background="@drawable/bg_list_row"
+                android:padding="12dp"
+                android:layout_marginEnd="6dp">
+
+                <TextView
+                    android:id="@+id/tvStatTotal"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="12"
+                    android:textSize="24sp"
+                    android:textStyle="bold"
+                    android:textColor="?attr/colorPrimary" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Total Workouts"
+                    android:textSize="12sp"
+                    android:textColor="@color/white" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:background="@drawable/bg_list_row"
+                android:padding="12dp"
+                android:layout_marginHorizontal="3dp">
+
+                <TextView
+                    android:id="@+id/tvStatWeek"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="3"
+                    android:textSize="24sp"
+                    android:textStyle="bold"
+                    android:textColor="?attr/colorPrimary" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="This Week"
+                    android:textSize="12sp"
+                    android:textColor="@color/white" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:background="@drawable/bg_list_row"
+                android:padding="12dp"
+                android:layout_marginStart="6dp">
+
+                <TextView
+                    android:id="@+id/tvStatStreak"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="5 days"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:textColor="?attr/colorPrimary" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Streak"
+                    android:textSize="12sp"
+                    android:textColor="@color/white" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Start New Workout (orange, full width, with play icon) -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnStartWorkout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Start New Workout"
+            android:textStyle="bold"
+            app:icon="@drawable/ic_play"
+            app:iconGravity="textStart"
+            app:iconTint="@color/white"
+            android:layout_marginTop="16dp" />
+
+        <!-- Last Workout card -->
+        <LinearLayout
+            android:id="@+id/cardLastWorkout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_list_row"
+            android:padding="16dp"
+            android:layout_marginTop="12dp"
+            android:foreground="?attr/selectableItemBackground">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Last Workout"
+                android:textSize="12sp"
+                android:textAllCaps="true"
+                android:textColor="@color/onSurfaceMuted" />
+
+            <TextView
+                android:id="@+id/tvLastPlan"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:layout_marginTop="2dp" />
+
+            <TextView
+                android:id="@+id/tvLastMeta"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:textColor="@color/onSurfaceMuted"
+                android:layout_marginTop="2dp" />
+        </LinearLayout>
+
+        <!-- 2×2 navigation grid (120dp per button, 8dp gap) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="120dp"
+                android:orientation="horizontal"
+                android:layout_marginBottom="8dp">
+
+                <Button
+                    android:id="@+id/btnPlans"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="4dp"
+                    android:text="Training\nPlans" />
+
+                <Button
+                    android:id="@+id/btnExercises"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:text="Exercise\nDatabase" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="120dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnSessions"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="4dp"
+                    android:text="Workout\nSessions" />
+
+                <Button
+                    android:id="@+id/btnProgress"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:text="Progress\nCharts" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btnLogout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Logout"
+            android:textColor="@color/white"
+            android:backgroundTint="@color/dangerRed"
+            android:layout_marginTop="16dp" />
+
     </LinearLayout>
-
-    <!-- Personal Records -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Personal Records"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="8dp" />
-
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rvPersonalRecords"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
-
-    <ProgressBar
-        android:id="@+id/progressBar"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:visibility="gone" />
-
-    <!-- Navigation buttons -->
-    <Button
-        android:id="@+id/btnPlans"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Training Plans"
-        android:layout_marginTop="8dp" />
-
-    <Button
-        android:id="@+id/btnNewSession"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Workout Sessions"
-        android:layout_marginTop="4dp" />
-
-    <Button
-        android:id="@+id/btnProgress"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Progress Charts"
-        android:layout_marginTop="4dp" />
-
-    <Button
-        android:id="@+id/btnLogout"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Logout"
-        android:layout_marginTop="4dp"
-        android:backgroundTint="@color/dangerRed" />
-
-</LinearLayout>
+</ScrollView>
