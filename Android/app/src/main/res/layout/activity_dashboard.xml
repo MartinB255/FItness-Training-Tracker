@@ -62,16 +62,18 @@
                     android:textColor="?attr/colorPrimary" />
             </LinearLayout>
 
-            <!-- Stats row: 3 cards -->
+            <!-- Stats row: 3 cards (equal height via measureWithLargestChild) -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
+                android:baselineAligned="false"
+                android:measureWithLargestChild="true"
                 android:layout_marginTop="12dp">
 
                 <LinearLayout
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
+                    android:layout_height="match_parent"
                     android:layout_weight="1"
                     android:orientation="vertical"
                     android:background="@drawable/bg_list_row"
@@ -97,7 +99,7 @@
 
                 <LinearLayout
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
+                    android:layout_height="match_parent"
                     android:layout_weight="1"
                     android:orientation="vertical"
                     android:background="@drawable/bg_list_row"
@@ -123,7 +125,7 @@
 
                 <LinearLayout
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
+                    android:layout_height="match_parent"
                     android:layout_weight="1"
                     android:orientation="vertical"
                     android:background="@drawable/bg_list_row"
@@ -135,7 +137,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="5 days"
-                        android:textSize="20sp"
+                        android:textSize="24sp"
                         android:textStyle="bold"
                         android:textColor="?attr/colorPrimary" />
 
