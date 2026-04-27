@@ -21,8 +21,7 @@ Endpoints (all prefixed with /api/):
     GET/POST       exercise-logs/    — individual logs
     GET/PUT/DELETE exercise-logs/{id}/
 
-    GET progress/          — weight history grouped by exercise (line chart)
-    GET weekly-volume/     — weekly total volume for last 12 weeks (bar chart)
+    GET weekly-volume/     — weekly total volume since first session (bar chart)
     GET dashboard/         — dashboard summary (totals, streak, PRs)
 """
 
@@ -193,51 +192,16 @@ class ExerciseLogViewSet(viewsets.ModelViewSet):
 # ═══════════════════════════════════════════════════════════════════
 
 @api_view(["GET"])
-def progress(request):
-    """
-    GET /api/progress/
-    Weight progression per exercise, grouped by exercise name, sorted by date.
-    Shape:
-    {
-      "Bench Press": [{"date": "2026-04-01", "weight": "62.50"}, ...],
-      "Squat":       [...]
-    }
-    Only logs with status="done" count toward progress.
-    """
-    logs = (
-        ExerciseLog.objects
-        .filter(
-            workout_session__user=request.user,
-            status=ExerciseLog.STATUS_DONE,
-        )
-        .select_related("workout_session")
-        .order_by("workout_session__date")
-    )
-
-    grouped = {}
-    for log in logs:
-        grouped.setdefault(log.exercise_name, []).append({
-            "date": log.workout_session.date.isoformat(),
-            "sets": log.sets,
-            "reps": log.reps,
-            "weight": str(log.weight),
-        })
-    return Response(grouped)
-
-
-@api_view(["GET"])
 def weekly_volume(request):
     """
     GET /api/weekly-volume/
-    Total volume (sets × reps × weight) per ISO week for the last 12 weeks.
+    Total volume (sets × reps × weight) per ISO week, since the user's
+    first tracked session.
     """
-    twelve_weeks_ago = timezone.now().date() - timedelta(weeks=12)
-
     logs = (
         ExerciseLog.objects
         .filter(
             workout_session__user=request.user,
-            workout_session__date__gte=twelve_weeks_ago,
             status=ExerciseLog.STATUS_DONE,
         )
         .select_related("workout_session")
@@ -288,13 +252,14 @@ def dashboard(request):
     )
     streak = 0
     expected = today
-    for d in dates:
+    for i, d in enumerate(dates):
         if d == expected:
             streak += 1
-            expected -= timedelta(days=1)
-        elif d == expected + timedelta(days=1):
-            # today not worked out yet — keep looking
-            continue
+            expected = d - timedelta(days=1)
+        elif i == 0 and d == today - timedelta(days=1):
+            # haven't worked out today yet — let the streak start from yesterday
+            streak += 1
+            expected = d - timedelta(days=1)
         else:
             break
 

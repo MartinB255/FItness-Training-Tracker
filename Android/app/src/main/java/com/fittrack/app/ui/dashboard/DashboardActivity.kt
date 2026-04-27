@@ -24,6 +24,7 @@ import com.fittrack.app.ui.session.SessionDetailActivity
 import com.fittrack.app.ui.session.SessionListActivity
 import com.fittrack.app.util.SessionTimerStore
 import com.fittrack.app.util.UserStore
+import com.fittrack.app.util.formatDate
 import com.google.android.material.button.MaterialButton
 import kotlinx.coroutines.launch
 
@@ -138,7 +139,7 @@ class DashboardActivity : AppCompatActivity() {
         }
         cardLastWorkout.visibility = View.VISIBLE
         tvLastPlan.text = last.planName
-        tvLastMeta.text = "${last.date}  •  ${last.done}/${last.total} exercises completed"
+        tvLastMeta.text = "${formatDate(last.date)}  •  ${last.done}/${last.total} exercises completed"
         cardLastWorkout.setOnClickListener {
             startActivity(
                 Intent(this, SessionDetailActivity::class.java)

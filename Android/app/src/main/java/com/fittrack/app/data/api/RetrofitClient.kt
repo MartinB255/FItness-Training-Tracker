@@ -3,7 +3,6 @@ package com.fittrack.app.data.api
 import android.content.Context
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
@@ -34,10 +33,6 @@ object RetrofitClient {
     fun init(context: Context) {
         appContext = context.applicationContext
 
-        val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
-        }
-
         // Interceptor that attaches "Authorization: Token xxx" header
         val authInterceptor = Interceptor { chain ->
             val token = getToken()
@@ -53,7 +48,6 @@ object RetrofitClient {
 
         val client = OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
-            .addInterceptor(logging)
             .build()
 
         val retrofit = Retrofit.Builder()

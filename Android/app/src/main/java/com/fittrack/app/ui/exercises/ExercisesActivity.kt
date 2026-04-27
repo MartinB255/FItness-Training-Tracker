@@ -17,6 +17,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.fittrack.app.R
 import com.fittrack.app.data.model.Exercise
 import com.fittrack.app.data.repository.FitTrackRepository
+import com.fittrack.app.util.dp
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.launch
@@ -70,7 +71,7 @@ class ExercisesActivity : AppCompatActivity() {
     private fun showAddDialog() {
         val input = EditText(this).apply {
             hint = "Exercise name"
-            setPadding(48, 24, 48, 24)
+            setPadding(dp(16), dp(8), dp(16), dp(8))
         }
         MaterialAlertDialogBuilder(this)
             .setTitle("New Exercise")
@@ -117,7 +118,7 @@ class ExercisesActivity : AppCompatActivity() {
             hint = "Exercise name"
             setText(exercise.name)
             setSelection(text.length)
-            setPadding(48, 24, 48, 24)
+            setPadding(dp(16), dp(8), dp(16), dp(8))
         }
         MaterialAlertDialogBuilder(this)
             .setTitle("Rename Exercise")

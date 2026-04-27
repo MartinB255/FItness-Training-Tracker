@@ -16,6 +16,7 @@ import com.fittrack.app.data.model.ExerciseLog
 import com.fittrack.app.data.repository.FitTrackRepository
 import com.fittrack.app.util.ExerciseStatus
 import com.fittrack.app.util.StatusUi
+import com.fittrack.app.util.formatDate
 import com.fittrack.app.util.formatWeightKg
 import com.google.android.material.appbar.MaterialToolbar
 import kotlinx.coroutines.launch
@@ -53,7 +54,7 @@ class SessionDetailActivity : AppCompatActivity() {
                     toolbar.title = s.planName
                     val done = s.exerciseLogs.count { it.status == "done" }
                     tvHeader.text =
-                        "${s.date}  •  $done/${s.exerciseLogs.size} completed  •  " +
+                        "${formatDate(s.date)}  •  $done/${s.exerciseLogs.size} completed  •  " +
                         formatDuration(s.durationSeconds)
                     rvLogs.adapter = LogsAdapter(s.exerciseLogs)
                 }

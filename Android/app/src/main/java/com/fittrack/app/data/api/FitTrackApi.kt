@@ -101,10 +101,6 @@ interface FitTrackApi {
 
     // ── Progress / charts ────────────────────────────────────────
 
-    /** Returns { exerciseName -> [points] } so the line chart can draw one line per exercise. */
-    @GET("progress/")
-    suspend fun getProgress(): Response<Map<String, List<ProgressPoint>>>
-
     @GET("weekly-volume/")
     suspend fun getWeeklyVolume(): Response<List<WeeklyVolume>>
 

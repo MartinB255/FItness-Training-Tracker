@@ -127,14 +127,6 @@ data class CreateLogRequest(
 //  PROGRESS / CHARTS
 // ═══════════════════════════════════════════════════════════════════
 
-/** One point on the weight-over-time line for an exercise. */
-data class ProgressPoint(
-    val date: String,
-    val sets: Int,
-    val reps: Int,
-    val weight: String,
-)
-
 data class WeeklyVolume(
     val week: String,
     @SerializedName("total_volume") val totalVolume: Double,

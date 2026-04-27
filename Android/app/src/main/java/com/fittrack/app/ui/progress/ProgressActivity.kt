@@ -140,6 +140,9 @@ class ProgressActivity : AppCompatActivity() {
             override fun onNothingSelected(p: AdapterView<*>?) = Unit
         }
         spinnerPlan.setSelection(defaultIndex)
+        // setSelection(0) is a no-op when the spinner already shows position 0,
+        // so render explicitly to guarantee the initial draw.
+        renderLineCharts(planOptions[defaultIndex].second)
     }
 
     /** Group "done" logs by exercise name, applying [selector] to each log. */

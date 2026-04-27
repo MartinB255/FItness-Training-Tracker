@@ -26,7 +26,6 @@ urlpatterns = [
     path("", include(router.urls)),
 
     # Charts / summary
-    path("progress/", views.progress, name="progress"),
     path("weekly-volume/", views.weekly_volume, name="weekly-volume"),
     path("dashboard/", views.dashboard, name="dashboard"),
 ]

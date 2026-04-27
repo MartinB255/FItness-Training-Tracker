@@ -18,6 +18,7 @@ import com.fittrack.app.R
 import com.fittrack.app.data.model.WorkoutSession
 import com.fittrack.app.data.repository.FitTrackRepository
 import com.fittrack.app.ui.plans.PlanPicker
+import com.fittrack.app.util.formatDate
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.launch
@@ -73,7 +74,7 @@ class SessionListActivity : AppCompatActivity() {
     private fun confirmDelete(session: WorkoutSession) {
         MaterialAlertDialogBuilder(this)
             .setTitle("Delete session?")
-            .setMessage("This will permanently remove the session from ${session.date}.")
+            .setMessage("This will permanently remove the session from ${formatDate(session.date)}.")
             .setPositiveButton("Delete") { _, _ -> deleteSession(session) }
             .setNegativeButton("Cancel", null)
             .show()
@@ -116,7 +117,7 @@ class SessionListActivity : AppCompatActivity() {
 
         override fun onBindViewHolder(holder: VH, position: Int) {
             val s = sessions[position]
-            holder.date.text = s.date
+            holder.date.text = formatDate(s.date)
             holder.plan.text = s.planName
             val done = s.exerciseLogs.count { it.status == "done" }
             val total = s.exerciseLogs.size

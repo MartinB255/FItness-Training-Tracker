@@ -21,6 +21,7 @@ import com.fittrack.app.data.model.PlanExercise
 import com.fittrack.app.data.model.TrainingPlan
 import com.fittrack.app.data.repository.FitTrackRepository
 import com.fittrack.app.ui.session.NewSessionActivity
+import com.fittrack.app.util.dp
 import com.fittrack.app.util.formatWeightKg
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -80,7 +81,7 @@ class PlansActivity : AppCompatActivity() {
     private fun showCreatePlanDialog() {
         val input = EditText(this).apply {
             hint = "Plan name"
-            setPadding(48, 24, 48, 24)
+            setPadding(dp(16), dp(8), dp(16), dp(8))
         }
         MaterialAlertDialogBuilder(this)
             .setTitle("New Plan")
@@ -126,12 +127,14 @@ class PlansActivity : AppCompatActivity() {
             }
         }
 
-        val planAdapter = PlanExercisesAdapter(planExercises) { idx ->
+        lateinit var planAdapter: PlanExercisesAdapter
+        planAdapter = PlanExercisesAdapter(planExercises) { idx ->
             val removed = planExercises[idx]
             lifecycleScope.launch {
                 FitTrackRepository.removePlanExercise(removed.id)
                     .onSuccess {
                         planExercises.removeAt(idx)
+                        planAdapter.notifyItemRemoved(idx)
                         syncOuterList()
                         tvEmptyDlg.visibility =
                             if (planExercises.isEmpty()) View.VISIBLE else View.GONE
@@ -206,7 +209,7 @@ class PlansActivity : AppCompatActivity() {
     ) {
         val input = EditText(this).apply {
             hint = "Exercise name"
-            setPadding(48, 24, 48, 24)
+            setPadding(dp(16), dp(8), dp(16), dp(8))
         }
         MaterialAlertDialogBuilder(this)
             .setTitle("New Exercise")

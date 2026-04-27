@@ -11,6 +11,7 @@
     <color name="onSurfaceMuted">#BBBBBB</color>
 
     <color name="dangerRed">#D32F2F</color>
+    <color name="successGreen">#4CAF50</color>
     <color name="disabledGray">#555555</color>
     <color name="disabledOnGray">#999999</color>
 </resources>

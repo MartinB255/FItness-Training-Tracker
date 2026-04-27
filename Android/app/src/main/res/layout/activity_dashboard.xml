@@ -150,18 +150,6 @@
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- Start New Workout (orange, full width, with play icon) -->
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnStartWorkout"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Start New Workout"
-                android:textStyle="bold"
-                app:icon="@drawable/ic_play"
-                app:iconGravity="textStart"
-                app:iconTint="@color/white"
-                android:layout_marginTop="16dp" />
-
             <!-- Last Workout card -->
             <LinearLayout
                 android:id="@+id/cardLastWorkout"
@@ -197,6 +185,23 @@
                     android:textColor="@color/onSurfaceMuted"
                     android:layout_marginTop="2dp" />
             </LinearLayout>
+
+            <!-- Start New Workout (green, fills remaining space, with play icon) -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnStartWorkout"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:minHeight="96dp"
+                android:layout_marginTop="16dp"
+                android:text="Start New Workout"
+                android:textStyle="bold"
+                android:backgroundTint="@color/successGreen"
+                app:cornerRadius="20dp"
+                app:icon="@drawable/ic_play"
+                app:iconGravity="textStart"
+                app:iconTint="@color/white" />
+
         </LinearLayout>
     </ScrollView>
 

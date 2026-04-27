@@ -151,9 +151,6 @@ object FitTrackRepository {
 
     // ── Progress / charts ────────────────────────────────────────
 
-    suspend fun getProgress(): Result<Map<String, List<ProgressPoint>>> =
-        safeCall { api.getProgress() }
-
     suspend fun getWeeklyVolume(): Result<List<WeeklyVolume>> =
         safeCall { api.getWeeklyVolume() }
 
