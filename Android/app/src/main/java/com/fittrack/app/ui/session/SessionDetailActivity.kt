@@ -98,7 +98,7 @@ class SessionDetailActivity : AppCompatActivity() {
         override fun onBindViewHolder(holder: VH, position: Int) {
             val log = logs[position]
             holder.name.text = log.exerciseName
-            holder.meta.text = "${log.sets} × ${log.reps} @ ${formatWeightKg(log.weight)}"
+            holder.meta.text = "${log.sets} × ${log.reps} - ${formatWeightKg(log.weight)}"
             StatusUi.apply(holder.status, ExerciseStatus.fromApi(log.status))
         }
     }

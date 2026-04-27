@@ -9,7 +9,6 @@ import android.widget.Button
 import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
@@ -20,6 +19,7 @@ import com.fittrack.app.data.model.WorkoutSession
 import com.fittrack.app.data.repository.FitTrackRepository
 import com.fittrack.app.ui.plans.PlanPicker
 import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.launch
 
 /** List of past workout sessions; tap one to open SessionDetailActivity. */
@@ -71,7 +71,7 @@ class SessionListActivity : AppCompatActivity() {
     }
 
     private fun confirmDelete(session: WorkoutSession) {
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("Delete session?")
             .setMessage("This will permanently remove the session from ${session.date}.")
             .setPositiveButton("Delete") { _, _ -> deleteSession(session) }

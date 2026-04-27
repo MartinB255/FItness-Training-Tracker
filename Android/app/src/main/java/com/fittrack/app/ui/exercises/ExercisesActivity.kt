@@ -9,7 +9,6 @@ import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
@@ -19,6 +18,7 @@ import com.fittrack.app.R
 import com.fittrack.app.data.model.Exercise
 import com.fittrack.app.data.repository.FitTrackRepository
 import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.launch
 
 /** The Exercise Database — flat list of saved exercise names. */
@@ -72,7 +72,7 @@ class ExercisesActivity : AppCompatActivity() {
             hint = "Exercise name"
             setPadding(48, 24, 48, 24)
         }
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("New Exercise")
             .setView(input)
             .setPositiveButton("Add") { _, _ ->
@@ -119,7 +119,7 @@ class ExercisesActivity : AppCompatActivity() {
             setSelection(text.length)
             setPadding(48, 24, 48, 24)
         }
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("Rename Exercise")
             .setView(input)
             .setPositiveButton("Save") { _, _ ->
@@ -151,7 +151,6 @@ class ExercisesActivity : AppCompatActivity() {
     private inner class ExercisesAdapter : RecyclerView.Adapter<ExercisesAdapter.VH>() {
         inner class VH(view: View) : RecyclerView.ViewHolder(view) {
             val name: TextView = view.findViewById(R.id.tvExerciseName)
-            val edit: ImageButton = view.findViewById(R.id.btnEdit)
             val delete: ImageButton = view.findViewById(R.id.btnDelete)
         }
 
@@ -166,9 +165,9 @@ class ExercisesActivity : AppCompatActivity() {
         override fun onBindViewHolder(holder: VH, position: Int) {
             val e = items[position]
             holder.name.text = e.name
-            holder.edit.setOnClickListener { showEditDialog(e) }
+            holder.itemView.setOnClickListener { showEditDialog(e) }
             holder.delete.setOnClickListener {
-                AlertDialog.Builder(this@ExercisesActivity)
+                MaterialAlertDialogBuilder(this@ExercisesActivity)
                     .setTitle("Delete ${e.name}?")
                     .setMessage("This will also remove it from any training plans.")
                     .setPositiveButton("Delete") { _, _ -> deleteExercise(e) }

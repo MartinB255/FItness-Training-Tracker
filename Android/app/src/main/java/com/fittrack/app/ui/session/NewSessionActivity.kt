@@ -13,7 +13,6 @@ import android.widget.Chronometer
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
@@ -30,6 +29,7 @@ import com.fittrack.app.util.SessionTimerStore
 import com.fittrack.app.util.StatusUi
 import com.fittrack.app.util.formatWeight
 import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -101,7 +101,7 @@ class NewSessionActivity : AppCompatActivity() {
     }
 
     private fun confirmCancel() {
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("Cancel workout?")
             .setMessage("The current session will be discarded.")
             .setPositiveButton("Discard") { _, _ ->
@@ -144,7 +144,7 @@ class NewSessionActivity : AppCompatActivity() {
     }
 
     private fun finishWithMissingPlan() {
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("Plan missing")
             .setMessage("Couldn't load the plan for this workout.")
             .setPositiveButton("OK") { _, _ -> finish() }
@@ -253,7 +253,7 @@ class NewSessionActivity : AppCompatActivity() {
             if (skipped > 0) append(", $skipped skipped")
             append(".")
         }
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("Great workout!")
             .setMessage(message)
             .setCancelable(false)

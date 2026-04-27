@@ -8,11 +8,11 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.ProgressBar
 import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import com.fittrack.app.R
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.fittrack.app.data.api.RetrofitClient
 import com.fittrack.app.data.repository.FitTrackRepository
 import com.fittrack.app.ui.dashboard.DashboardActivity
@@ -142,7 +142,7 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun showError(message: String) {
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("Oops")
             .setMessage(message)
             .setPositiveButton("OK", null)

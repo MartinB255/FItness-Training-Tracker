@@ -2,11 +2,11 @@ package com.fittrack.app.ui.plans
 
 import android.content.Intent
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.fittrack.app.data.repository.FitTrackRepository
 import com.fittrack.app.ui.session.NewSessionActivity
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.launch
 
 /**
@@ -20,7 +20,7 @@ object PlanPicker {
             FitTrackRepository.getPlans()
                 .onSuccess { plans ->
                     if (plans.isEmpty()) {
-                        AlertDialog.Builder(activity)
+                        MaterialAlertDialogBuilder(activity)
                             .setTitle("No plans yet")
                             .setMessage("Create a training plan before starting a workout.")
                             .setPositiveButton("OK", null)
@@ -28,7 +28,7 @@ object PlanPicker {
                         return@onSuccess
                     }
                     val names = plans.map { it.name }.toTypedArray()
-                    AlertDialog.Builder(activity)
+                    MaterialAlertDialogBuilder(activity)
                         .setTitle("Start Workout — pick a plan")
                         .setItems(names) { _, which ->
                             activity.startActivity(

@@ -43,7 +43,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:hint="Password"
-        android:inputType="textPassword"
+        android:inputType="textVisiblePassword"
         android:fontFamily="monospace"
         android:importantForAutofill="no"
         android:layout_marginBottom="12dp" />
@@ -53,7 +53,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:hint="Confirm password"
-        android:inputType="textPassword"
+        android:inputType="textVisiblePassword"
         android:fontFamily="monospace"
         android:importantForAutofill="no"
         android:visibility="gone"

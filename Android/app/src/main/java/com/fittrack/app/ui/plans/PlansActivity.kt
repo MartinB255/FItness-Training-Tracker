@@ -10,7 +10,6 @@ import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
@@ -24,6 +23,7 @@ import com.fittrack.app.data.repository.FitTrackRepository
 import com.fittrack.app.ui.session.NewSessionActivity
 import com.fittrack.app.util.formatWeightKg
 import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.launch
 
 /**
@@ -82,7 +82,7 @@ class PlansActivity : AppCompatActivity() {
             hint = "Plan name"
             setPadding(48, 24, 48, 24)
         }
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("New Plan")
             .setView(input)
             .setPositiveButton("Create") { _, _ ->
@@ -143,7 +143,7 @@ class PlansActivity : AppCompatActivity() {
         rv.adapter = planAdapter
         tvEmptyDlg.visibility = if (planExercises.isEmpty()) View.VISIBLE else View.GONE
 
-        val dialog = AlertDialog.Builder(this)
+        val dialog = MaterialAlertDialogBuilder(this)
             .setTitle(plan.name)
             .setView(view)
             .setNegativeButton("Close", null)
@@ -159,7 +159,7 @@ class PlansActivity : AppCompatActivity() {
         }
         btnStart.setOnClickListener {
             if (planExercises.isEmpty()) {
-                AlertDialog.Builder(this)
+                MaterialAlertDialogBuilder(this)
                     .setTitle("Empty plan")
                     .setMessage("Add at least one exercise before starting a workout.")
                     .setPositiveButton("OK", null)
@@ -186,7 +186,7 @@ class PlansActivity : AppCompatActivity() {
                 .onSuccess { catalog ->
                     val createLabel = "+ Create new exercise…"
                     val items = (listOf(createLabel) + catalog.map { it.name }).toTypedArray()
-                    AlertDialog.Builder(this@PlansActivity)
+                    MaterialAlertDialogBuilder(this@PlansActivity)
                         .setTitle("Add exercise")
                         .setItems(items) { _, which ->
                             if (which == 0) showCreateExerciseDialog(planId, onAdded)
@@ -208,7 +208,7 @@ class PlansActivity : AppCompatActivity() {
             hint = "Exercise name"
             setPadding(48, 24, 48, 24)
         }
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("New Exercise")
             .setView(input)
             .setPositiveButton("Create") { _, _ ->
@@ -239,7 +239,7 @@ class PlansActivity : AppCompatActivity() {
     // ── Adapter: top-level plans list ────────────────────────────────
 
     private fun confirmDeletePlan(plan: TrainingPlan) {
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("Delete plan?")
             .setMessage("\"${plan.name}\" will be removed. Past sessions that used it are kept.")
             .setPositiveButton("Delete") { _, _ -> deletePlan(plan) }
@@ -313,7 +313,7 @@ class PlansActivity : AppCompatActivity() {
         override fun onBindViewHolder(holder: VH, position: Int) {
             val e = items[position]
             holder.name.text = e.exerciseName
-            holder.meta.text = "${e.sets} × ${e.reps} @ ${formatWeightKg(e.weight)}"
+            holder.meta.text = "${e.sets} × ${e.reps} - ${formatWeightKg(e.weight)}"
             holder.remove.setOnClickListener {
                 val idx = holder.bindingAdapterPosition
                 if (idx != RecyclerView.NO_POSITION) onRemove(idx)

@@ -2,13 +2,17 @@ package com.fittrack.app.ui.progress
 
 import android.graphics.Color
 import android.os.Bundle
+import android.view.View
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
+import android.widget.Spinner
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import com.fittrack.app.R
-import com.fittrack.app.data.model.ProgressPoint
 import com.fittrack.app.data.model.WeeklyVolume
+import com.fittrack.app.data.model.WorkoutSession
 import com.fittrack.app.data.repository.FitTrackRepository
 import com.github.mikephil.charting.charts.BarChart
 import com.github.mikephil.charting.charts.LineChart
@@ -26,7 +30,7 @@ import kotlinx.coroutines.launch
 
 /**
  * Progress screen with two MPAndroidChart charts:
- *   1. Line chart — weight progression per exercise over time (from /progress/).
+ *   1. Line chart — weight progression per exercise over time, filterable by plan.
  *   2. Bar chart  — weekly total training volume (from /weekly-volume/).
  */
 class ProgressActivity : AppCompatActivity() {
@@ -35,7 +39,6 @@ class ProgressActivity : AppCompatActivity() {
     private val axisTextColor = Color.parseColor("#EEEEEE")
     private val mutedGridColor = Color.parseColor("#555555")
 
-    // Palette for per-exercise series on the line chart.
     private val seriesColors = intArrayOf(
         Color.parseColor("#FF7A00"),
         Color.parseColor("#4CAF50"),
@@ -45,6 +48,13 @@ class ProgressActivity : AppCompatActivity() {
 
     private lateinit var lineChart: LineChart
     private lateinit var barChart: BarChart
+    private lateinit var spinnerPlan: Spinner
+
+    /** Sessions cached so the spinner can re-filter without re-fetching. */
+    private var sessions: List<WorkoutSession> = emptyList()
+
+    /** Spinner entries: [(label, planId-or-null)]. null == "All Plans". */
+    private var planOptions: List<Pair<String, Int?>> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,6 +66,7 @@ class ProgressActivity : AppCompatActivity() {
 
         lineChart = findViewById(R.id.lineChart)
         barChart = findViewById(R.id.barChart)
+        spinnerPlan = findViewById(R.id.spinnerPlan)
 
         lineChart.setNoDataText("Loading…")
         barChart.setNoDataText("Loading…")
@@ -64,9 +75,17 @@ class ProgressActivity : AppCompatActivity() {
     }
 
     private fun loadCharts() {
+        // Line chart driven by sessions + plans (so we can filter by plan).
         lifecycleScope.launch {
-            FitTrackRepository.getProgress()
-                .onSuccess { setupLineChart(it) }
+            val sessionsResult = FitTrackRepository.getSessions()
+            val plansResult = FitTrackRepository.getPlans()
+
+            sessionsResult
+                .onSuccess { fetchedSessions ->
+                    sessions = fetchedSessions
+                    val plans = plansResult.getOrNull().orEmpty()
+                    setupPlanSpinner(plans)
+                }
                 .onFailure {
                     lineChart.setNoDataText("No progress data yet")
                     lineChart.invalidate()
@@ -74,6 +93,7 @@ class ProgressActivity : AppCompatActivity() {
                         "Progress: ${it.message}", Toast.LENGTH_LONG).show()
                 }
         }
+        // Bar chart still uses the dedicated weekly-volume endpoint.
         lifecycleScope.launch {
             FitTrackRepository.getWeeklyVolume()
                 .onSuccess { setupBarChart(it) }
@@ -86,26 +106,56 @@ class ProgressActivity : AppCompatActivity() {
         }
     }
 
-    /** Line chart: weight (kg) vs. dates, one line per exercise. */
-    private fun setupLineChart(series: Map<String, List<ProgressPoint>>) {
-        if (series.isEmpty()) {
+    private fun setupPlanSpinner(plans: List<com.fittrack.app.data.model.TrainingPlan>) {
+        // Build options from plans actually used in sessions, plus a top "All Plans".
+        val planIdsInSessions = sessions.mapNotNull { it.trainingPlan }.toSet()
+        val plansInUse = plans.filter { it.id in planIdsInSessions }
+
+        planOptions = listOf<Pair<String, Int?>>("All Plans" to null) +
+            plansInUse.map { it.name to it.id }
+
+        spinnerPlan.adapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_dropdown_item,
+            planOptions.map { it.first },
+        )
+        spinnerPlan.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(p: AdapterView<*>?, v: View?, pos: Int, id: Long) {
+                renderLineChart(planOptions[pos].second)
+            }
+            override fun onNothingSelected(p: AdapterView<*>?) = Unit
+        }
+        // Initial render; the spinner listener will also fire onItemSelected.
+        renderLineChart(null)
+    }
+
+    /** Re-build the line chart from cached sessions, optionally filtered to a plan. */
+    private fun renderLineChart(planFilterId: Int?) {
+        // Group: exerciseName -> list of (date, weightDouble), only "done" logs.
+        val grouped = mutableMapOf<String, MutableList<Pair<String, Float>>>()
+        for (session in sessions) {
+            if (planFilterId != null && session.trainingPlan != planFilterId) continue
+            for (log in session.exerciseLogs) {
+                if (log.status != "done") continue
+                val w = log.weight.toFloatOrNull() ?: continue
+                grouped.getOrPut(log.exerciseName) { mutableListOf() }
+                    .add(session.date to w)
+            }
+        }
+        if (grouped.isEmpty()) {
             lineChart.clear()
             lineChart.setNoDataText("No progress data yet")
             lineChart.invalidate()
             return
         }
+        // Sort each series by date.
+        grouped.values.forEach { it.sortBy { p -> p.first } }
 
-        // Unified x-axis built from the union of all dates (sorted).
-        val allDates = series.values.flatten().map { it.date }.distinct().sorted()
+        val allDates = grouped.values.flatten().map { it.first }.distinct().sorted()
         val dateIndex = allDates.withIndex().associate { (i, d) -> d to i.toFloat() }
 
-        val dataSets = series.entries.mapIndexed { i, (exerciseName, points) ->
-            val entries = points.map {
-                Entry(
-                    dateIndex.getValue(it.date),
-                    it.weight.toFloatOrNull() ?: 0f,
-                )
-            }
+        val dataSets = grouped.entries.mapIndexed { i, (exerciseName, points) ->
+            val entries = points.map { (date, w) -> Entry(dateIndex.getValue(date), w) }
             LineDataSet(entries, exerciseName).apply {
                 color = seriesColors[i % seriesColors.size]
                 setCircleColor(color)
@@ -117,7 +167,6 @@ class ProgressActivity : AppCompatActivity() {
         }
 
         lineChart.data = LineData(dataSets)
-        // Show YYYY-MM-DD as MM-DD to keep the x-axis readable.
         styleAxes(lineChart.xAxis, lineChart.axisLeft, allDates.map { it.takeLast(5) })
         lineChart.axisRight.isEnabled = false
         lineChart.description.isEnabled = false
@@ -144,7 +193,6 @@ class ProgressActivity : AppCompatActivity() {
         }
 
         barChart.data = BarData(set).apply { barWidth = 0.55f }
-        // "2026-W17" -> "W17"
         styleAxes(barChart.xAxis, barChart.axisLeft, weeks.map { it.week.takeLast(3) })
         barChart.axisRight.isEnabled = false
         barChart.description.isEnabled = false
